@@ -1,0 +1,52 @@
+{% extends "admin/change_form.html" %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    label {
+        font-weight: bold !important;
+    }
+    .form-row label {
+        font-weight: bold !important;
+    }
+    .field-label {
+        font-weight: bold !important;
+    }
+    .fieldBox label {
+        font-weight: bold !important;
+    }
+</style>
+<script>
+(function() {
+    function interceptFormSubmit() {
+        var forms = document.querySelectorAll('form');
+        forms.forEach(function(form) {
+            // Удаляем предыдущие обработчики, если есть
+            form.removeEventListener('submit', handleFormSubmit);
+            // Добавляем новый обработчик
+            form.addEventListener('submit', handleFormSubmit);
+        });
+    }
+    
+    function handleFormSubmit(event) {
+        var form = event.target;
+        if (!form.enctype || form.enctype === 'application/x-www-form-urlencoded') {
+            form.enctype = 'multipart/form-data';
+            console.log('Enctype set to multipart/form-data before submit');
+        }
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', interceptFormSubmit);
+    } else {
+        interceptFormSubmit();
+    }
+    
+    // Наблюдаем за изменениями DOM
+    var observer = new MutationObserver(function(mutations) {
+        interceptFormSubmit();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+})();
+</script>
+{% endblock %}

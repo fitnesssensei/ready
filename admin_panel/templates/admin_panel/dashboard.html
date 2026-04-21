@@ -1,0 +1,35 @@
+{% extends 'admin_panel/base.html' %}
+
+{% block title %}Панель управления - Админка интернет-магазина{% endblock %}
+
+{% block content %}
+<div class="stats">
+    <div class="stat-card">
+        <div class="stat-number">0</div>
+        <div class="stat-label">Всего товаров</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">0</div>
+        <div class="stat-label">Активных заказов</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">0</div>
+        <div class="stat-label">Клиентов</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">0</div>
+        <div class="stat-label">Продаж сегодня</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Добро пожаловать в админку!</h2>
+    <p>Это панель управления интернет-магазином. Здесь вы можете управлять товарами, заказами и клиентами.</p>
+    <p>Проект создан с использованием Django 6.0.3 без базы данных.</p>
+</div>
+
+<div class="card">
+    <h2>Быстрые действия</h2>
+    <p>Используйте меню слева для навигации по разделам админки.</p>
+</div>
+{% endblock %}

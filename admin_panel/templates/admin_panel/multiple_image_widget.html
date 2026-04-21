@@ -1,0 +1,102 @@
+<div class="multiple-image-widget" id="widget-{{ name }}">
+
+    <div class="existing-photos">
+        <h4>Загруженные фотографии:</h4>
+        <div class="photos-container">
+            {% for photo in photos %}
+            <div class="photo-item" data-path="{{ photo }}">
+                <img src="{{ MEDIA_URL }}{{ photo }}" alt="Фото книги">
+                <button type="button" class="remove-photo" title="Удалить фото">×</button>
+            </div>
+            {% empty %}
+            <p class="no-photos">Нет загруженных фотографий</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="upload-section">
+        <h4>Добавить фотографии (до 10 файлов):</h4>
+        <input type="file"
+               name="{{ name }}"
+               multiple
+               accept="image/*"
+               class="multiple-file-input">
+        <p class="hint">💡 Ctrl/Cmd — выбор нескольких. Всего не более 10 фото.</p>
+        <div class="selected-files-preview" id="preview-{{ name }}"></div>
+    </div>
+
+    <!-- Скрытое поле — список путей сохранённых фото -->
+    <input type="hidden" name="{{ name }}_existing" id="existing-{{ name }}" value="{{ photos_json }}">
+
+</div>
+
+<style>
+.multiple-image-widget { border:1px solid #ddd; padding:15px; border-radius:6px; background:#fafafa; margin:8px 0; }
+.existing-photos h4, .upload-section h4 { margin:0 0 10px; color:#333; font-size:13px; }
+.photos-container { display:flex; flex-wrap:wrap; gap:8px; min-height:30px; }
+.photo-item { position:relative; display:inline-block; }
+.photo-item img { max-width:120px; max-height:120px; border:1px solid #ddd; border-radius:4px; display:block; }
+.remove-photo { position:absolute; top:-8px; right:-8px; background:#dc3545; color:white; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; font-size:13px; font-weight:bold; line-height:1; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+.remove-photo:hover { background:#c82333; }
+.no-photos { color:#888; font-style:italic; font-size:13px; }
+.upload-section { margin-top:15px; padding-top:15px; border-top:1px solid #eee; }
+.multiple-file-input { display:block; margin:8px 0; padding:10px; border:2px dashed #ccc; border-radius:4px; background:#f9f9f9; width:100%; cursor:pointer; }
+.multiple-file-input:hover { border-color:#999; background:#f0f0f0; }
+.hint { font-size:12px; color:#666; margin:4px 0 8px; }
+.selected-files-preview { margin-top:8px; padding:8px; background:#e9ecef; border-radius:4px; font-size:12px; display:none; }
+.file-preview-item { display:inline-block; margin:3px; padding:3px 8px; background:#007bff; color:white; border-radius:3px; }
+</style>
+
+<script>
+(function() {
+    var widgetEl   = document.getElementById('widget-{{ name }}');
+    var fileInput  = widgetEl.querySelector('input[type="file"]');
+    var preview    = document.getElementById('preview-{{ name }}');
+    var hiddenFld  = document.getElementById('existing-{{ name }}');
+
+    // Удаление существующего фото
+    widgetEl.addEventListener('click', function(e) {
+        if (!e.target.classList.contains('remove-photo')) return;
+        var item = e.target.closest('.photo-item');
+        if (!item) return;
+        item.remove();
+        syncHidden();
+    });
+
+    // Предпросмотр выбранных файлов
+    fileInput.addEventListener('change', function() {
+        var files = Array.from(this.files);
+        if (!files.length) { preview.style.display = 'none'; return; }
+
+        preview.style.display = 'block';
+        preview.innerHTML = '<strong>Выбрано: ' + files.length + '</strong><br>';
+        files.forEach(function(f, i) {
+            var span = document.createElement('span');
+            span.className = 'file-preview-item';
+            span.textContent = (i + 1) + '. ' + f.name + ' (' + fmtSize(f.size) + ')';
+            preview.appendChild(span);
+        });
+        if (files.length > 10) {
+            var warn = document.createElement('div');
+            warn.style.cssText = 'color:#dc3545;font-weight:bold;margin-top:4px';
+            warn.textContent = '⚠️ Будут загружены только первые 10 файлов';
+            preview.appendChild(warn);
+        }
+    });
+
+    function syncHidden() {
+        var paths = [];
+        widgetEl.querySelectorAll('.photo-item[data-path]').forEach(function(el) {
+            paths.push(el.dataset.path);
+        });
+        hiddenFld.value = JSON.stringify(paths);
+    }
+
+    function fmtSize(b) {
+        if (!b) return '0 B';
+        var k = 1024, sizes = ['B','KB','MB','GB'];
+        var i = Math.floor(Math.log(b) / Math.log(k));
+        return (b / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i];
+    }
+})();
+</script>
