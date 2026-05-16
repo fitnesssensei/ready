@@ -17,6 +17,14 @@ class Category(models.Model):
 
 
 class Book(models.Model):
+    SOURCE_MANUAL = 'manual'
+    SOURCE_EKSMO = 'eksmo'
+
+    SOURCE_CHOICES = [
+        (SOURCE_MANUAL, 'Админка'),
+        (SOURCE_EKSMO, 'Импорт Эксмо'),
+    ]
+
     COVER_TYPES = [
         ('hard', 'Твердый'),
         ('soft', 'Мягкий'),
@@ -34,6 +42,13 @@ class Book(models.Model):
     ]
 
     title = models.CharField(max_length=200, verbose_name="Название", default="")
+    source = models.CharField(
+        max_length=10,
+        choices=SOURCE_CHOICES,
+        default=SOURCE_MANUAL,
+        verbose_name="Источник",
+        db_index=True,
+    )
     sku = models.CharField(max_length=50, unique=True, blank=True, null=True, verbose_name="Артикул")
     category = models.ForeignKey(
         Category, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Категория"
@@ -62,7 +77,7 @@ class Book(models.Model):
     # ✅ FIX: default должен быть кодом из choices ('0'), а не отображаемым текстом ('Без НДС')
     vat_rate = models.CharField(max_length=2, choices=VAT_RATES, verbose_name="Ставка НДС", default='0')
     stock = models.PositiveIntegerField(verbose_name="Остаток на складе", default=1)
-    isbn = models.CharField(max_length=13, unique=True, blank=True, null=True, verbose_name="ISBN")
+    isbn = models.CharField(max_length=20, blank=True, null=True, verbose_name="ISBN")
     weight = models.DecimalField(
         max_digits=6, decimal_places=3, verbose_name="Вес с упаковкой (кг)", blank=True, null=True
     )
@@ -83,6 +98,27 @@ class Book(models.Model):
         verbose_name = "Книга"
         verbose_name_plural = "Книги"
         ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['isbn', 'source'],
+                condition=models.Q(isbn__isnull=False),
+                name='unique_isbn_per_source',
+            ),
+        ]
 
     def __str__(self):
         return self.title
+
+
+class ManualBook(Book):
+    class Meta:
+        proxy = True
+        verbose_name = "Книга (админка)"
+        verbose_name_plural = "Каталог — админка"
+
+
+class EksmoBook(Book):
+    class Meta:
+        proxy = True
+        verbose_name = "Книга (Эксмо)"
+        verbose_name_plural = "Каталог — Эксмо"

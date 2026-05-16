@@ -1,0 +1,197 @@
+{% extends "admin_panel/change_form.html" %}
+{% load i18n %}
+
+{% block form_top %}
+{% if add and eksmo_search_url %}
+<div id="eksmo-catalog-search" class="eksmo-search-panel">
+    <h2>Поиск в каталоге Эксмо</h2>
+    <p class="eksmo-search-hint">По названию или ISBN. Выберите книгу — поля формы заполнятся; при сохранении создаётся <strong>новая</strong> запись в магазине.</p>
+    <div class="eksmo-search-row">
+        <input type="text"
+               id="eksmo-search-input"
+               class="eksmo-search-input"
+               placeholder="Название или ISBN…"
+               autocomplete="off">
+        <button type="button" class="button" id="eksmo-search-btn">Найти</button>
+    </div>
+    <div id="eksmo-search-results" class="eksmo-search-results" hidden></div>
+    <p id="eksmo-search-status" class="eksmo-search-status"></p>
+</div>
+<style>
+.eksmo-search-panel {
+    margin: 0 0 24px;
+    padding: 16px 18px;
+    border: 1px solid #c8d6e5;
+    border-radius: 8px;
+    background: #f0f6fc;
+}
+.eksmo-search-panel h2 { margin: 0 0 8px; font-size: 15px; }
+.eksmo-search-hint { margin: 0 0 12px; color: #444; font-size: 13px; }
+.eksmo-search-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.eksmo-search-input {
+    flex: 1;
+    min-width: 220px;
+    padding: 8px 10px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+.eksmo-search-results {
+    margin-top: 12px;
+    max-height: 240px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+}
+.eksmo-search-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    border: none;
+    border-bottom: 1px solid #eee;
+    background: #fff;
+    cursor: pointer;
+    font-size: 13px;
+}
+.eksmo-search-item:hover { background: #e8f4ff; }
+.eksmo-search-item strong { display: block; margin-bottom: 4px; }
+.eksmo-search-item span { color: #666; font-size: 12px; }
+.eksmo-search-status { margin: 8px 0 0; font-size: 12px; color: #666; }
+.eksmo-search-empty { padding: 12px; color: #888; font-size: 13px; }
+</style>
+<script>
+(function() {
+    var searchUrl = "{{ eksmo_search_url|escapejs }}";
+    var templateUrlTpl = "{{ eksmo_template_url_tpl|escapejs }}";
+    var mediaUrl = "{{ media_url|escapejs }}";
+    var input = document.getElementById('eksmo-search-input');
+    var btn = document.getElementById('eksmo-search-btn');
+    var resultsEl = document.getElementById('eksmo-search-results');
+    var statusEl = document.getElementById('eksmo-search-status');
+    var debounceTimer = null;
+
+    function setStatus(text) {
+        statusEl.textContent = text || '';
+    }
+
+    function runSearch() {
+        var q = (input.value || '').trim();
+        if (q.length < 2) {
+            setStatus('Введите минимум 2 символа');
+            resultsEl.hidden = true;
+            return;
+        }
+        setStatus('Поиск…');
+        fetch(searchUrl + '?q=' + encodeURIComponent(q), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            renderResults(data.results || []);
+        })
+        .catch(function() {
+            setStatus('Ошибка поиска');
+            resultsEl.hidden = true;
+        });
+    }
+
+    function renderResults(items) {
+        resultsEl.innerHTML = '';
+        if (!items.length) {
+            resultsEl.innerHTML = '<div class="eksmo-search-empty">Ничего не найдено</div>';
+            resultsEl.hidden = false;
+            setStatus('');
+            return;
+        }
+        items.forEach(function(item) {
+            var btnEl = document.createElement('button');
+            btnEl.type = 'button';
+            btnEl.className = 'eksmo-search-item';
+            btnEl.innerHTML = '<strong>' + escapeHtml(item.title) + '</strong>' +
+                '<span>' + escapeHtml(item.author || '') +
+                (item.isbn ? ' · ISBN ' + escapeHtml(item.isbn) : '') + '</span>';
+            btnEl.addEventListener('click', function() { applyTemplate(item.id); });
+            resultsEl.appendChild(btnEl);
+        });
+        resultsEl.hidden = false;
+        setStatus('Найдено: ' + items.length);
+    }
+
+    function escapeHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = s || '';
+        return d.innerHTML;
+    }
+
+    function setField(name, value) {
+        var el = document.getElementById('id_' + name);
+        if (!el) return;
+        if (el.type === 'checkbox') {
+            el.checked = !!value;
+        } else {
+            el.value = value == null ? '' : value;
+        }
+    }
+
+    function applyTemplate(bookId) {
+        setStatus('Загрузка…');
+        var url = templateUrlTpl.replace('__ID__', String(bookId));
+        fetch(url, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                setStatus(data.error);
+                return;
+            }
+            var b = data.book;
+            Object.keys(b).forEach(function(key) {
+                if (key === 'photos') return;
+                setField(key, b[key]);
+            });
+            applyPhotos(b.photos || []);
+            setStatus('Данные подставлены из каталога Эксмо. Заполните цену, остаток и сохраните.');
+            resultsEl.hidden = true;
+            window.scrollTo({ top: document.getElementById('eksmo-catalog-search').offsetTop, behavior: 'smooth' });
+        })
+        .catch(function() { setStatus('Не удалось загрузить книгу'); });
+    }
+
+    function applyPhotos(photos) {
+        var hidden = document.getElementById('existing-photos');
+        var container = document.querySelector('#widget-photos .photos-container');
+        if (!hidden || !container) return;
+        hidden.value = JSON.stringify(photos);
+        container.innerHTML = '';
+        if (!photos.length) {
+            container.innerHTML = '<p class="no-photos">Нет загруженных фотографий</p>';
+            return;
+        }
+        photos.forEach(function(path) {
+            var wrap = document.createElement('div');
+            wrap.className = 'photo-item';
+            wrap.dataset.path = path;
+            wrap.innerHTML = '<img src="' + mediaUrl + path + '" alt="Фото">' +
+                '<button type="button" class="remove-photo" title="Удалить фото">×</button>';
+            container.appendChild(wrap);
+        });
+    }
+
+    btn.addEventListener('click', runSearch);
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); runSearch(); }
+    });
+    input.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(runSearch, 400);
+    });
+})();
+</script>
+{% endif %}
+{{ block.super }}
+{% endblock %}
