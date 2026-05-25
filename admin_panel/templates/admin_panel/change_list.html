@@ -18,12 +18,4 @@
 
 {% block object-tools-items %}
     {{ block.super }}
-    <li>
-        <a href="{% url 'admin_panel:export_ozon_yml' %}"
-           class="button"
-           style="background-color:#0066cc;color:white;text-decoration:none;padding:8px 16px;border-radius:4px;display:inline-block;margin-left:10px;"
-           onclick="return confirm('Экспортировать ВСЕ товары в Ozon YML?')">
-            📥 Экспорт всех в Ozon YML
-        </a>
-    </li>
 {% endblock %}

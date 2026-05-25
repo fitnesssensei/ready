@@ -9,7 +9,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import path, reverse
 
-from .models import Book, Category, EksmoBook, ManualBook
+from .models import Book, Category, EksmoBook, ManualBook, OzonTemplate
 from .widgets import MultipleImageWidget
 
 logger = logging.getLogger(__name__)
@@ -122,9 +122,28 @@ class CategoryAdmin(admin.ModelAdmin):
     ordering = ('name',)
 
 
+@admin.register(OzonTemplate)
+class OzonTemplateAdmin(admin.ModelAdmin):
+    list_display = ('name', 'is_active', 'uploaded_at', 'file')
+    list_filter = ('is_active', 'uploaded_at')
+    search_fields = ('name', 'description')
+    ordering = ('-uploaded_at',)
+    readonly_fields = ('uploaded_at',)
+
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('name', 'file', 'description', 'is_active')
+        }),
+        ('Служебное', {
+            'fields': ('uploaded_at',),
+            'classes': ('collapse',),
+        }),
+    )
+
+
 class BaseBookAdmin(admin.ModelAdmin):
     change_form_template = 'admin_panel/change_form.html'
-    actions = ['export_selected_ozon']
+    actions = ['export_selected_to_excel', 'export_selected_to_ozon']
 
     list_display = (
         'sku', 'title', 'category', 'author', 'author_oblozh', 'genre',
@@ -191,12 +210,26 @@ class BaseBookAdmin(admin.ModelAdmin):
     def _set_source(self, obj):
         raise NotImplementedError
 
-    def export_selected_ozon(self, request, queryset):
-        from .views import export_ozon_yml
-        request.ozon_export_queryset = queryset
-        return export_ozon_yml(request)
+    def export_selected_to_excel(self, request, queryset):
+        from .views import export_books_to_excel
+        request.excel_export_queryset = queryset
+        return export_books_to_excel(request)
 
-    export_selected_ozon.short_description = "Экспортировать выбранные в Ozon YML"
+    export_selected_to_excel.short_description = "Экспортировать выбранные в Excel"
+
+    def export_selected_to_ozon(self, request, queryset):
+        from .views import export_books_to_ozon_template
+        request.ozon_export_queryset = queryset
+        return export_books_to_ozon_template(request)
+
+    export_selected_to_ozon.short_description = "Экспортировать выбранные в шаблон Ozon"
+
+    # def export_selected_ozon(self, request, queryset):
+    #     from .views import export_ozon_yml
+    #     request.ozon_export_queryset = queryset
+    #     return export_ozon_yml(request)
+
+    # export_selected_ozon.short_description = "Экспортировать выбранные в Ozon YML"
 
 
 @admin.register(Book)

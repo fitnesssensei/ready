@@ -8,5 +8,5 @@ urlpatterns = [
     path('products/', views.products, name='products'),
     path('orders/', views.orders, name='orders'),
     path('customers/', views.customers, name='customers'),
-    path('export-ozon-yml/', views.export_ozon_yml, name='export_ozon_yml'),
+    # path('export-ozon-yml/', views.export_ozon_yml, name='export_ozon_yml'),
 ]

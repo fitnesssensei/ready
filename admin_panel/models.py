@@ -1,6 +1,28 @@
 from django.db import models
 
 
+class OzonTemplate(models.Model):
+    name = models.CharField(max_length=200, verbose_name="Название шаблона")
+    file = models.FileField(upload_to='ozon_templates/', verbose_name="Excel файл")
+    description = models.TextField(blank=True, verbose_name="Описание")
+    is_active = models.BooleanField(default=True, verbose_name="Активный")
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата загрузки")
+
+    class Meta:
+        verbose_name = "Шаблон Ozon"
+        verbose_name_plural = "Шаблоны Ozon"
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.uploaded_at.strftime('%Y-%m-%d')})"
+
+    def save(self, *args, **kwargs):
+        if self.is_active:
+            # Деактивировать все остальные шаблоны
+            OzonTemplate.objects.filter(is_active=True).update(is_active=False)
+        super().save(*args, **kwargs)
+
+
 class Category(models.Model):
     name = models.CharField(max_length=200, verbose_name="Название категории")
     ozon_category_id = models.CharField(max_length=50, verbose_name="ID категории Озон", unique=True)

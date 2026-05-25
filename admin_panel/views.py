@@ -1,11 +1,14 @@
 import logging
+import os
 
 import yaml
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font, Alignment
 from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import render
 
-from .models import Book
+from .models import Book, OzonTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -26,113 +29,310 @@ def customers(request):
     return render(request, 'admin_panel/customers.html')
 
 
-def export_ozon_yml(request):
+def export_books_to_ozon_template(request):
     """
-    Экспорт книг в YML-формат для загрузки на Ozon.
-
-    ✅ FIX:
-    - OZON_SHOP_ID берётся из settings (не захардкожен)
-    - import yaml перенесён в начало файла
-    - убрана дублирующая логика — файлы сохраняются только в admin.py
+    Экспорт выбранных книг в шаблон Ozon.
+    Использует последний загруженный активный шаблон.
     """
     if hasattr(request, 'ozon_export_queryset'):
         books = request.ozon_export_queryset
     else:
         books = Book.objects.select_related('category').all()
 
-    # ── Валидация обязательных полей ─────────────────────────────────────────
-    validation_errors = []
-    valid_books = []
+    # Получить активный шаблон
+    template = OzonTemplate.objects.filter(is_active=True).first()
 
-    for book in books:
-        errors = []
-
-        if not book.title:
-            errors.append('Название')
-        if not book.price or book.price <= 0:
-            errors.append('Цена')
-        if not book.category or not book.category.ozon_category_id:
-            errors.append('Категория Озон')
-        if book.stock is None or book.stock < 0:
-            errors.append('Остаток на складе')
-        if not book.photos:
-            errors.append('Фотографии')
-
-        if errors:
-            validation_errors.append({
-                'book_id': book.id,
-                'title': book.title or 'Без названия',
-                'errors': errors,
-            })
-        else:
-            valid_books.append(book)
-
-    if validation_errors:
-        lines = ["Следующие товары не могут быть экспортированы (не заполнены обязательные поля):\n"]
-        for err in validation_errors:
-            lines.append(
-                f"  • Книга ID {err['book_id']}: «{err['title']}» — "
-                f"отсутствуют: {', '.join(err['errors'])}"
-            )
-        return HttpResponse('\n'.join(lines), content_type='text/plain; charset=utf-8')
-
-    if not valid_books:
+    if not template:
         return HttpResponse(
-            "Нет товаров для экспорта. Убедитесь, что у товаров заполнены все обязательные поля.",
+            "Ошибка: Не найден активный шаблон Ozon. Загрузите шаблон через админку в разделе 'Шаблоны Ozon'.",
             content_type='text/plain; charset=utf-8',
+            status=400
         )
 
-    # ── Формирование YML ─────────────────────────────────────────────────────
-    offers = []
-    base_url = request.build_absolute_uri('/')
+    # Загрузить шаблон
+    template_path = os.path.join(settings.MEDIA_ROOT, template.file.name)
 
-    for book in valid_books:
-        pictures = [
-            f"{base_url}media/{photo}"
-            for photo in (book.photos or [])
-        ]
+    if not os.path.exists(template_path):
+        return HttpResponse(
+            f"Ошибка: Файл шаблона не найден: {template.file.name}",
+            content_type='text/plain; charset=utf-8',
+            status=404
+        )
 
-        offer = {
-            'offer_id': str(book.id),
-            'name': book.title,
-            'price': float(book.price),
-            'currency_code': 'RUB',
-            'category_id': book.category.ozon_category_id,
-            'vendor': book.publisher or '',
-            'author': book.author or '',
-            'year': book.publication_year or 0,
-            'isbn': book.isbn or '',
-            'description': book.description or '',
-            'stock': book.stock,
-            'vat': book.vat_rate or '0',
+    try:
+        wb = load_workbook(template_path)
+
+        # Открыть лист "Шаблон"
+        if 'Шаблон' not in wb.sheetnames:
+            return HttpResponse(
+                "Ошибка: В шаблоне не найден лист 'Шаблон'",
+                content_type='text/plain; charset=utf-8',
+                status=400
+            )
+
+        ws = wb['Шаблон']
+
+        # Заголовки в строке 2
+        header_row = 2
+        headers = {}
+        for col_num in range(1, ws.max_column + 1):
+            cell_value = ws.cell(row=header_row, column=col_num).value
+            if cell_value:
+                # Нормализуем название колонки
+                header_clean = str(cell_value).replace('\n', ' ').strip().lower()
+                headers[header_clean] = col_num
+
+        # Маппинг наших полей на колонки Ozon
+        field_mapping = {
+            'артикул*': lambda book: book.sku or '',
+            'название товара': lambda book: book.title,
+            'цена, руб.*': lambda book: float(book.price) if book.price else '',
+            'цена до скидки, руб.': lambda book: float(book.old_price) if book.old_price else '',
+            'ндс, %*': lambda book: book.vat_rate or '0',
+            'вес в упаковке, г*': lambda book: int(float(book.weight) * 1000) if book.weight else '',
+            'ширина упаковки, мм*': lambda book: int(float(book.width) * 10) if book.width else '',
+            'высота упаковки, мм*': lambda book: int(float(book.height) * 10) if book.height else '',
+            'длина упаковки, мм*': lambda book: int(float(book.length) * 10) if book.length else '',
+            'автор на обложке': lambda book: book.author_oblozh or '',
+            'автор': lambda book: book.author or '',
+            'тип обложки': lambda book: book.get_cover_type_display(),
+            'тип*': lambda book: 'Букинистическое издание',
+            'бренд*': lambda book: book.publisher or 'Нет бренда',
+            'тн вэд коды еаэс*': lambda book: '4901990000',  # Код для книг
+            'издательство': lambda book: book.publisher or '',
+            'серия': lambda book: book.series or '',
+            'год выпуска': lambda book: book.publication_year or '',
+            'язык издания': lambda book: book.language or 'Русский',
+            'количество страниц': lambda book: book.pages or '',
+            'isbn': lambda book: book.isbn or '',
+            'аннотация': lambda book: book.description or '',
         }
 
-        if book.old_price:
-            offer['old_price'] = float(book.old_price)
-        if pictures:
-            offer['pictures'] = pictures
-        if book.weight:
-            offer['weight'] = float(book.weight)
-        if book.length and book.width and book.height:
-            offer['depth'] = float(book.length)
-            offer['width'] = float(book.width)
-            offer['height'] = float(book.height)
+        # Начинаем заполнять с 5-й строки (после заголовков и описаний)
+        current_row = 5
 
-        offers.append(offer)
+        for idx, book in enumerate(books, 1):
+            # Номер строки
+            ws.cell(row=current_row, column=1).value = idx
 
-    # ✅ FIX: shop_id из настроек, а не захардкоженная заглушка
-    yml_data = {
-        'shop_id': settings.OZON_SHOP_ID,
-        'offers': offers,
-    }
+            # Заполняем остальные поля
+            for header_name, col_num in headers.items():
+                if header_name in field_mapping:
+                    try:
+                        value = field_mapping[header_name](book)
+                        ws.cell(row=current_row, column=col_num).value = value
+                    except Exception as e:
+                        logger.warning(f"Ошибка при заполнении поля '{header_name}' для книги {book.id}: {e}")
+                        ws.cell(row=current_row, column=col_num).value = ''
 
-    payload = yaml.dump(
-        yml_data,
-        allow_unicode=True,
-        default_flow_style=False,
-        sort_keys=False,
+            current_row += 1
+
+        # Создать HTTP ответ с заполненным шаблоном
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="ozon_export_{len(books)}_books.xlsx"'
+
+        wb.save(response)
+        return response
+
+    except Exception as e:
+        logger.error(f"Ошибка при экспорте в шаблон Ozon: {e}")
+        return HttpResponse(
+            f"Ошибка при обработке шаблона: {str(e)}",
+            content_type='text/plain; charset=utf-8',
+            status=500
+        )
+
+
+def export_books_to_excel(request):
+    """
+    Экспорт выбранных книг в Excel файл.
+    """
+    if hasattr(request, 'excel_export_queryset'):
+        books = request.excel_export_queryset
+    else:
+        books = Book.objects.select_related('category').all()
+
+    # Создаем новую книгу Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Книги"
+
+    # Заголовки колонок
+    headers = [
+        'ID', 'Артикул', 'Название', 'Автор', 'Автор на обложке', 'Жанр',
+        'Издательство', 'Серия', 'Год издания', 'Язык', 'Сохранность',
+        'Тип переплёта', 'Страниц', 'ISBN', 'Цена', 'Старая цена',
+        'НДС', 'Остаток', 'Вес (кг)', 'Длина (см)', 'Ширина (см)',
+        'Высота (см)', 'Категория', 'Источник', 'Дата создания'
+    ]
+
+    # Записываем заголовки
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.value = header
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+
+    # Записываем данные книг
+    for row_num, book in enumerate(books, 2):
+        ws.cell(row=row_num, column=1).value = book.id
+        ws.cell(row=row_num, column=2).value = book.sku or ''
+        ws.cell(row=row_num, column=3).value = book.title
+        ws.cell(row=row_num, column=4).value = book.author
+        ws.cell(row=row_num, column=5).value = book.author_oblozh
+        ws.cell(row=row_num, column=6).value = book.genre
+        ws.cell(row=row_num, column=7).value = book.publisher
+        ws.cell(row=row_num, column=8).value = book.series or ''
+        ws.cell(row=row_num, column=9).value = book.publication_year or ''
+        ws.cell(row=row_num, column=10).value = book.language
+        ws.cell(row=row_num, column=11).value = book.get_condition_display() if book.condition else ''
+        ws.cell(row=row_num, column=12).value = book.get_cover_type_display()
+        ws.cell(row=row_num, column=13).value = book.pages or ''
+        ws.cell(row=row_num, column=14).value = book.isbn or ''
+        ws.cell(row=row_num, column=15).value = float(book.price) if book.price else 0
+        ws.cell(row=row_num, column=16).value = float(book.old_price) if book.old_price else ''
+        ws.cell(row=row_num, column=17).value = book.get_vat_rate_display()
+        ws.cell(row=row_num, column=18).value = book.stock
+        ws.cell(row=row_num, column=19).value = float(book.weight) if book.weight else ''
+        ws.cell(row=row_num, column=20).value = float(book.length) if book.length else ''
+        ws.cell(row=row_num, column=21).value = float(book.width) if book.width else ''
+        ws.cell(row=row_num, column=22).value = float(book.height) if book.height else ''
+        ws.cell(row=row_num, column=23).value = book.category.name if book.category else ''
+        ws.cell(row=row_num, column=24).value = book.get_source_display()
+        ws.cell(row=row_num, column=25).value = book.created_at.strftime('%Y-%m-%d %H:%M:%S')
+
+    # Автоматическая ширина колонок
+    for column in ws.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws.column_dimensions[column_letter].width = adjusted_width
+
+    # Создаем HTTP ответ с Excel файлом
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
+    response['Content-Disposition'] = 'attachment; filename="books_export.xlsx"'
 
-    response = HttpResponse(payload, content_type='text/yaml; charset=utf-8')
-    response['Content-Disposition'] = 'attachment; filename="ozon_export.yml"'
+    wb.save(response)
     return response
+
+
+# def export_ozon_yml(request):
+#     """
+#     Экспорт книг в YML-формат для загрузки на Ozon.
+#
+#     ✅ FIX:
+#     - OZON_SHOP_ID берётся из settings (не захардкожен)
+#     - import yaml перенесён в начало файла
+#     - убрана дублирующая логика — файлы сохраняются только в admin.py
+#     """
+#     if hasattr(request, 'ozon_export_queryset'):
+#         books = request.ozon_export_queryset
+#     else:
+#         books = Book.objects.select_related('category').all()
+#
+#     # ── Валидация обязательных полей ─────────────────────────────────────────
+#     validation_errors = []
+#     valid_books = []
+#
+#     for book in books:
+#         errors = []
+#
+#         if not book.title:
+#             errors.append('Название')
+#         if not book.price or book.price <= 0:
+#             errors.append('Цена')
+#         if not book.category or not book.category.ozon_category_id:
+#             errors.append('Категория Озон')
+#         if book.stock is None or book.stock < 0:
+#             errors.append('Остаток на складе')
+#         if not book.photos:
+#             errors.append('Фотографии')
+#
+#         if errors:
+#             validation_errors.append({
+#                 'book_id': book.id,
+#                 'title': book.title or 'Без названия',
+#                 'errors': errors,
+#             })
+#         else:
+#             valid_books.append(book)
+#
+#     if validation_errors:
+#         lines = ["Следующие товары не могут быть экспортированы (не заполнены обязательные поля):\n"]
+#         for err in validation_errors:
+#             lines.append(
+#                 f"  • Книга ID {err['book_id']}: «{err['title']}» — "
+#                 f"отсутствуют: {', '.join(err['errors'])}"
+#             )
+#         return HttpResponse('\n'.join(lines), content_type='text/plain; charset=utf-8')
+#
+#     if not valid_books:
+#         return HttpResponse(
+#             "Нет товаров для экспорта. Убедитесь, что у товаров заполнены все обязательные поля.",
+#             content_type='text/plain; charset=utf-8',
+#         )
+#
+#     # ── Формирование YML ─────────────────────────────────────────────────────
+#     offers = []
+#     base_url = request.build_absolute_uri('/')
+#
+#     for book in valid_books:
+#         pictures = [
+#             f"{base_url}media/{photo}"
+#             for photo in (book.photos or [])
+#         ]
+#
+#         offer = {
+#             'offer_id': str(book.id),
+#             'name': book.title,
+#             'price': float(book.price),
+#             'currency_code': 'RUB',
+#             'category_id': book.category.ozon_category_id,
+#             'vendor': book.publisher or '',
+#             'author': book.author or '',
+#             'year': book.publication_year or 0,
+#             'isbn': book.isbn or '',
+#             'description': book.description or '',
+#             'stock': book.stock,
+#             'vat': book.vat_rate or '0',
+#         }
+#
+#         if book.old_price:
+#             offer['old_price'] = float(book.old_price)
+#         if pictures:
+#             offer['pictures'] = pictures
+#         if book.weight:
+#             offer['weight'] = float(book.weight)
+#         if book.length and book.width and book.height:
+#             offer['depth'] = float(book.length)
+#             offer['width'] = float(book.width)
+#             offer['height'] = float(book.height)
+#
+#         offers.append(offer)
+#
+#     # ✅ FIX: shop_id из настроек, а не захардкоженная заглушка
+#     yml_data = {
+#         'shop_id': settings.OZON_SHOP_ID,
+#         'offers': offers,
+#     }
+#
+#     payload = yaml.dump(
+#         yml_data,
+#         allow_unicode=True,
+#         default_flow_style=False,
+#         sort_keys=False,
+#     )
+#
+#     response = HttpResponse(payload, content_type='text/yaml; charset=utf-8')
+#     response['Content-Disposition'] = 'attachment; filename="ozon_export.yml"'
+#     return response
