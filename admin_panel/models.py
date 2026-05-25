@@ -2,23 +2,51 @@ from django.db import models
 
 
 class OzonTemplate(models.Model):
+    """
+    Модель для хранения шаблонов Ozon.
+
+    Шаблоны загружаются вручную через админку и используются для экспорта
+    товаров в формате, совместимом с Ozon Seller.
+
+    Особенности:
+    - Только один шаблон может быть активным одновременно
+    - При активации нового шаблона, старые автоматически деактивируются
+    - Файлы хранятся в media/ozon_templates/
+    """
+
+    # Название шаблона для идентификации (например, "Букинистика май 2026")
     name = models.CharField(max_length=200, verbose_name="Название шаблона")
+
+    # Excel файл шаблона, скачанный из Ozon Seller
     file = models.FileField(upload_to='ozon_templates/', verbose_name="Excel файл")
+
+    # Необязательное описание для дополнительной информации
     description = models.TextField(blank=True, verbose_name="Описание")
+
+    # Флаг активности - только один шаблон может быть активным
     is_active = models.BooleanField(default=True, verbose_name="Активный")
+
+    # Автоматическая дата загрузки шаблона
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата загрузки")
 
     class Meta:
         verbose_name = "Шаблон Ozon"
         verbose_name_plural = "Шаблоны Ozon"
-        ordering = ['-uploaded_at']
+        ordering = ['-uploaded_at']  # Сортировка по дате: новые сверху
 
     def __str__(self):
+        """Строковое представление: название + дата"""
         return f"{self.name} ({self.uploaded_at.strftime('%Y-%m-%d')})"
 
     def save(self, *args, **kwargs):
+        """
+        Переопределенный метод сохранения.
+
+        Логика: если текущий шаблон активен, деактивируем все остальные.
+        Это гарантирует, что только один шаблон активен в любой момент времени.
+        """
         if self.is_active:
-            # Деактивировать все остальные шаблоны
+            # Деактивировать все остальные шаблоны перед сохранением
             OzonTemplate.objects.filter(is_active=True).update(is_active=False)
         super().save(*args, **kwargs)
 

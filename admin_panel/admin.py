@@ -124,10 +124,26 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(OzonTemplate)
 class OzonTemplateAdmin(admin.ModelAdmin):
+    """
+    Админка для управления шаблонами Ozon.
+
+    Позволяет загружать новые шаблоны Excel из Ozon Seller
+    и управлять их активностью.
+    """
+
+    # Колонки, отображаемые в списке шаблонов
     list_display = ('name', 'is_active', 'uploaded_at', 'file')
+
+    # Фильтры в боковой панели
     list_filter = ('is_active', 'uploaded_at')
+
+    # Поля для поиска
     search_fields = ('name', 'description')
+
+    # Сортировка: новые шаблоны сверху
     ordering = ('-uploaded_at',)
+
+    # Поля только для чтения (дата загрузки устанавливается автоматически)
     readonly_fields = ('uploaded_at',)
 
     fieldsets = (
@@ -136,13 +152,22 @@ class OzonTemplateAdmin(admin.ModelAdmin):
         }),
         ('Служебное', {
             'fields': ('uploaded_at',),
-            'classes': ('collapse',),
+            'classes': ('collapse',),  # Свернутая секция по умолчанию
         }),
     )
 
 
 class BaseBookAdmin(admin.ModelAdmin):
+    """
+    Базовый класс админки для книг.
+
+    Содержит общую конфигурацию для ManualBook и EksmoBook.
+    Включает настройки отображения, фильтры, поиск и действия экспорта.
+    """
+
     change_form_template = 'admin_panel/change_form.html'
+
+    # Действия, доступные для выбранных книг
     actions = ['export_selected_to_excel', 'export_selected_to_ozon']
 
     list_display = (
@@ -211,6 +236,14 @@ class BaseBookAdmin(admin.ModelAdmin):
         raise NotImplementedError
 
     def export_selected_to_excel(self, request, queryset):
+        """
+        Action для экспорта выбранных книг в Excel.
+
+        Создает стандартный Excel файл со всеми данными книг:
+        - 25 колонок с полной информацией
+        - Форматированные заголовки
+        - Автоматическая ширина колонок
+        """
         from .views import export_books_to_excel
         request.excel_export_queryset = queryset
         return export_books_to_excel(request)
@@ -218,6 +251,15 @@ class BaseBookAdmin(admin.ModelAdmin):
     export_selected_to_excel.short_description = "Экспортировать выбранные в Excel"
 
     def export_selected_to_ozon(self, request, queryset):
+        """
+        Action для экспорта выбранных книг в шаблон Ozon.
+
+        Использует активный шаблон из модели OzonTemplate:
+        - Загружает последний активный шаблон
+        - Заполняет его данными выбранных книг
+        - Автоматически преобразует единицы измерения (кг→г, см→мм)
+        - Возвращает готовый файл для загрузки на Ozon
+        """
         from .views import export_books_to_ozon_template
         request.ozon_export_queryset = queryset
         return export_books_to_ozon_template(request)
