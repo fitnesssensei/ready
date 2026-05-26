@@ -94,8 +94,8 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # ──────────────────────────────────────────────
-# Ozon
+# Ozon (закомментировано — интеграция с Ozon Seller API отключена)
 # ──────────────────────────────────────────────
-OZON_SHOP_ID = config('OZON_SHOP_ID', default='')
+# OZON_SHOP_ID = config('OZON_SHOP_ID', default='')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
