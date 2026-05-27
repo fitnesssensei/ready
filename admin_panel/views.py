@@ -84,6 +84,9 @@ def export_books_to_ozon_template(request):
             status=404
         )
 
+    # Базовый URL для построения ссылок на медиа-файлы (фото)
+    media_base_url = request.build_absolute_uri(settings.MEDIA_URL)
+
     try:
         # Загрузить Excel файл шаблона
         wb = load_workbook(template_path)
@@ -148,6 +151,16 @@ def export_books_to_ozon_template(request):
             'количество страниц': lambda book: book.pages or '',
             'isbn': lambda book: book.isbn or '',
             'аннотация': lambda book: book.description or '',
+
+            # Фотографии: book.photos хранит список относительных путей
+            # Преобразуем в полные URL для загрузки Ozon
+            'ссылка на главное фото*': lambda book: (
+                f'{media_base_url}{book.photos[0]}' if book.photos else ''
+            ),
+            'ссылки на дополнительные фото': lambda book: (
+                ' '.join(f'{media_base_url}{photo}' for photo in book.photos[1:])
+                if len(book.photos) > 1 else ''
+            ),
         }
 
         # Начинаем заполнять с 5-й строки (после заголовков и описаний)
