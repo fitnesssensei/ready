@@ -137,7 +137,7 @@ def import_books():
         json.JSONDecodeError: Если файл содержит невалидный JSON
     """
     # Открываем и читаем JSON файл с книгами
-    with open('parsing/eksmo_books_mt_deduped.json', 'r', encoding='utf-8') as f:
+    with open('parsing/books9244ded.json', 'r', encoding='utf-8') as f:
         books_data = json.load(f)
 
     print(f'Загружено {len(books_data)} книг из JSON')
