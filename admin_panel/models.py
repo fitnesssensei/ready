@@ -129,7 +129,7 @@ class Book(models.Model):
     stock = models.PositiveIntegerField(verbose_name="Остаток на складе", default=1)
     isbn = models.CharField(max_length=20, blank=True, null=True, verbose_name="ISBN")
     weight = models.DecimalField(
-        max_digits=6, decimal_places=3, verbose_name="Вес с упаковкой (кг)", blank=True, null=True
+        max_digits=8, decimal_places=4, verbose_name="Вес с упаковкой (кг)", blank=True, null=True
     )
     length = models.DecimalField(
         max_digits=6, decimal_places=2, verbose_name="Длина с упаковкой (см)", blank=True, null=True

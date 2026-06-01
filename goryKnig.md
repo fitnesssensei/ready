@@ -241,7 +241,7 @@ INSTALLED_APPS = [
 
 **Логистика:**
 
-- `weight` - Вес с упаковкой в кг (DecimalField, max_digits=6, decimal_places=3, nullable)
+- `weight` - Вес с упаковкой в кг (DecimalField, max_digits=6, decimal_places=4, nullable)
 - `length` - Длина с упаковкой в см (DecimalField, max_digits=6, decimal_places=2, nullable)
 - `width` - Ширина с упаковкой в см (DecimalField, max_digits=6, decimal_places=2, nullable)
 - `height` - Высота с упаковкой в см (DecimalField, max_digits=6, decimal_places=2, nullable)
