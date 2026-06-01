@@ -85,7 +85,8 @@ def export_books_to_ozon_template(request):
         )
 
     # Базовый URL для построения ссылок на медиа-файлы (фото)
-    media_base_url = request.build_absolute_uri(settings.MEDIA_URL)
+    # Используем MEDIA_BASE_URL из настроек (для внешнего доступа к фото Ozon)
+    media_base_url = getattr(settings, 'MEDIA_BASE_URL', request.build_absolute_uri(settings.MEDIA_URL))
 
     try:
         # Загрузить Excel файл шаблона
