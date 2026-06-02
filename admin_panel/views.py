@@ -127,12 +127,12 @@ def export_books_to_ozon_template(request):
             'ндс, %*': lambda book: book.vat_rate or '0',
 
             # Размеры и вес (ВАЖНО: преобразование единиц измерения!)
-            # Вес: кг → граммы (умножаем на 1000)
-            'вес в упаковке, г*': lambda book: int(float(book.weight) * 1000) if book.weight else '',
-            # Размеры: см → мм (умножаем на 10)
-            'ширина упаковки, мм*': lambda book: int(float(book.width) * 10) if book.width else '',
-            'высота упаковки, мм*': lambda book: int(float(book.height) * 10) if book.height else '',
-            'длина упаковки, мм*': lambda book: int(float(book.length) * 10) if book.length else '',
+            # Вес уже в граммах
+            'вес в упаковке, г*': lambda book: int(float(book.weight)) if book.weight else '',
+            # Размеры уже в миллиметрах (мм)
+            'ширина упаковки, мм*': lambda book: int(float(book.width)) if book.width else '',
+            'высота упаковки, мм*': lambda book: int(float(book.height)) if book.height else '',
+            'длина упаковки, мм*': lambda book: int(float(book.length)) if book.length else '',
 
             # Информация об авторе и издании
             'автор на обложке': lambda book: book.author_oblozh or '',
@@ -242,8 +242,8 @@ def export_books_to_excel(request):
         'ID', 'Артикул', 'Название', 'Автор', 'Автор на обложке', 'Жанр',
         'Издательство', 'Серия', 'Год издания', 'Язык', 'Сохранность',
         'Тип переплёта', 'Страниц', 'ISBN', 'Цена', 'Старая цена',
-        'НДС', 'Остаток', 'Вес (кг)', 'Длина (см)', 'Ширина (см)',
-        'Высота (см)', 'Категория', 'Источник', 'Дата создания'
+        'НДС', 'Остаток', 'Вес (г)', 'Длина (мм)', 'Ширина (мм)',
+        'Высота (мм)', 'Категория', 'Источник', 'Дата создания'
     ]
 
     # Записываем заголовки в первую строку с форматированием

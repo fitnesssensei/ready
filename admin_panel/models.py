@@ -129,16 +129,16 @@ class Book(models.Model):
     stock = models.PositiveIntegerField(verbose_name="Остаток на складе", default=1)
     isbn = models.CharField(max_length=20, blank=True, null=True, verbose_name="ISBN")
     weight = models.DecimalField(
-        max_digits=8, decimal_places=4, verbose_name="Вес с упаковкой (кг)", blank=True, null=True
+        max_digits=8, decimal_places=4, verbose_name="Вес с упаковкой (г)", blank=True, null=True
     )
     length = models.DecimalField(
-        max_digits=6, decimal_places=2, verbose_name="Длина с упаковкой (см)", blank=True, null=True
+        max_digits=6, decimal_places=2, verbose_name="Длина с упаковкой (мм)", blank=True, null=True
     )
     width = models.DecimalField(
-        max_digits=6, decimal_places=2, verbose_name="Ширина с упаковкой (см)", blank=True, null=True
+        max_digits=6, decimal_places=2, verbose_name="Ширина с упаковкой (мм)", blank=True, null=True
     )
     height = models.DecimalField(
-        max_digits=6, decimal_places=2, verbose_name="Высота с упаковкой (см)", blank=True, null=True
+        max_digits=6, decimal_places=2, verbose_name="Высота с упаковкой (мм)", blank=True, null=True
     )
     publication_date = models.DateField(blank=True, null=True, verbose_name="Дата публикации")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
