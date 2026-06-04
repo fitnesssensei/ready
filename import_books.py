@@ -9,7 +9,8 @@
 
 Особенности:
     - Батчевая вставка по 500 книг для оптимизации производительности
-    - Пропуск дубликатов по ISBN и источнику
+    - Пропуск дубликатов по ISBN + источник (только для книг с ISBN)
+    - Книги без ISBN добавляются без проверки на дубликаты
     - Автоматическое определение типа переплета из текстового описания
     - Парсинг года издания и количества страниц из строк
     - Установка source='eksmo' для всех импортированных книг
@@ -125,8 +126,8 @@ def import_books():
     Процесс:
         1. Загрузка JSON файла
         2. Обработка каждой книги:
-           - Проверка наличия ISBN
-           - Проверка на дубликаты (ISBN + источник)
+           - Проверка на дубликаты по ISBN + источник (только для книг с ISBN)
+           - Книги без ISBN добавляются без проверки на дубликаты
            - Парсинг полей (год, страницы, тип переплета)
            - Добавление в список для вставки
         3. Батчевая вставка каждые 500 книг
@@ -137,7 +138,7 @@ def import_books():
         json.JSONDecodeError: Если файл содержит невалидный JSON
     """
     # Открываем и читаем JSON файл с книгами
-    with open('parsing/books9244ded.json', 'r', encoding='utf-8') as f:
+    with open('parsing/books7501320ded.json', 'r', encoding='utf-8') as f:
         books_data = json.load(f)
 
     print(f'Загружено {len(books_data)} книг из JSON')
@@ -150,14 +151,9 @@ def import_books():
     for idx, book_data in enumerate(books_data, 1):
         isbn = book_data.get('isbn', '').strip()
 
-        # Пропустить книги без ISBN (обязательное поле для уникальности)
-        if not isbn:
-            skipped += 1
-            continue
-
-        # Проверить, существует ли книга с таким ISBN и источником
-        # Это предотвращает дубликаты при повторном запуске скрипта
-        if Book.objects.filter(isbn=isbn, source=Book.SOURCE_EKSMO).exists():
+        # Проверить дубликат только если есть ISBN
+        # (UniqueConstraint в модели срабатывает только при isbn IS NOT NULL)
+        if isbn and Book.objects.filter(isbn=isbn, source=Book.SOURCE_EKSMO).exists():
             skipped += 1
             continue
 
@@ -166,7 +162,7 @@ def import_books():
             # Обрезаем строки до максимальной длины полей модели
             title=book_data.get('title', '')[:200],
             author=book_data.get('author', '')[:100],
-            isbn=isbn[:20],
+            isbn=isbn[:20] if isbn else None,
             description=book_data.get('description', ''),
             publisher=book_data.get('publisher', '')[:100],
 
@@ -211,7 +207,7 @@ def import_books():
     # Выводим статистику
     print(f'\n✅ Импорт завершен!')
     print(f'Всего импортировано: {total_imported} книг')
-    print(f'Пропущено (дубликаты или без ISBN): {skipped}')
+    print(f'Пропущено (дубликаты по ISBN): {skipped}')
 
 
 if __name__ == '__main__':
