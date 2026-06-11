@@ -148,13 +148,15 @@ class Book(models.Model):
         verbose_name = "Книга"
         verbose_name_plural = "Книги"
         ordering = ['-created_at']
-        constraints = [
-            models.UniqueConstraint(
-                fields=['isbn', 'source'],
-                condition=models.Q(isbn__isnull=False),
-                name='unique_isbn_per_source',
-            ),
-        ]
+        # 🔇 Дедупликация на уровне БД отключена — она выполняется
+        # на уровне приложения (в скриптах импорта).
+        # constraints = [
+        #     models.UniqueConstraint(
+        #         fields=['isbn', 'source'],
+        #         condition=models.Q(isbn__isnull=False),
+        #         name='unique_isbn_per_source',
+        #     ),
+        # ]
 
     def __str__(self):
         return self.title
