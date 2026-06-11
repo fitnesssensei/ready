@@ -172,5 +172,5 @@ class ManualBook(Book):
 class EksmoBook(Book):
     class Meta:
         proxy = True
-        verbose_name = "Книга (Эксмо)"
-        verbose_name_plural = "Каталог — Эксмо"
+        verbose_name = "Книга"
+        verbose_name_plural = "База книг"

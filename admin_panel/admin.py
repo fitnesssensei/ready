@@ -368,8 +368,30 @@ class ManualBookAdmin(BaseBookAdmin):
 
 @admin.register(EksmoBook)
 class EksmoBookAdmin(BaseBookAdmin):
+    # В «База книг» показываем все книги без фото
+    fieldsets = (
+        ('Основная информация', {
+            'fields': (
+                'sku', 'title', 'category', 'author', 'author_oblozh', 'genre',
+                'publisher', 'series', 'publication_year', 'language', 'condition',
+                'cover_type', 'pages', 'description',
+            )
+        }),
+        ('Коммерческая информация', {
+            'fields': ('price', 'old_price', 'vat_rate', 'stock', 'isbn')
+        }),
+        ('Логистика', {
+            'fields': ('weight', 'length', 'width', 'height')
+        }),
+        ('Служебное', {
+            'fields': ('source', 'publication_date', 'created_at', 'updated_at'),
+            'classes': ('collapse',),
+        }),
+    )
+
     def get_queryset(self, request):
-        return super().get_queryset(request).filter(source=Book.SOURCE_EKSMO)
+        # Показываем все книги — база книг целиком, без загрузки фото
+        return super().get_queryset(request).defer('photos')
 
     def _set_source(self, obj):
         obj.source = Book.SOURCE_EKSMO
