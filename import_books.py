@@ -153,7 +153,7 @@ def import_books():
         json.JSONDecodeError: Если файл содержит невалидный JSON
     """
     # Открываем и читаем JSON файл с книгами
-    with open('JSON/12000_clean.json', 'r', encoding='utf-8') as f:
+    with open('JSON/13000_libex.json', 'r', encoding='utf-8') as f:
         books_data = json.load(f)
 
     print(f'Загружено {len(books_data)} книг из JSON')
