@@ -58,12 +58,12 @@ def parse_cover_type(cover_str):
     return 'hard'
 
 
-def parse_year(year_str):
+def parse_year(year_value):
     """
-    Извлечь год издания из строки.
+    Извлечь год издания из значения (строка или число).
 
     Args:
-        year_str: Строка с годом (может быть пустой или содержать нечисловые символы)
+        year_value: Год (строка, число или None)
 
     Returns:
         int or None: Год издания (1800-2030) или None, если не удалось распарсить
@@ -71,31 +71,39 @@ def parse_year(year_str):
     Примеры:
         >>> parse_year("2024")
         2024
+        >>> parse_year(2019)
+        2019
         >>> parse_year("")
         None
         >>> parse_year("abc")
         None
-        >>> parse_year("1500")  # Слишком старый год
+        >>> parse_year(1500)  # Слишком старый год
         None
     """
-    if not year_str or not year_str.strip():
+    if year_value is None:
         return None
-    try:
-        year = int(year_str.strip())
-        # Валидация: год должен быть в разумных пределах
-        if 1800 <= year <= 2030:
-            return year
-    except (ValueError, TypeError):
-        pass
+    if isinstance(year_value, int):
+        year = year_value
+    else:
+        s = str(year_value).strip()
+        if not s:
+            return None
+        try:
+            year = int(s)
+        except (ValueError, TypeError):
+            return None
+    # Валидация: год должен быть в разумных пределах
+    if 1800 <= year <= 2030:
+        return year
     return None
 
 
-def parse_pages(pages_str):
+def parse_pages(pages_value):
     """
-    Извлечь количество страниц из строки.
+    Извлечь количество страниц из значения (строка или число).
 
     Args:
-        pages_str: Строка с количеством страниц
+        pages_value: Количество страниц (строка, число или None)
 
     Returns:
         int or None: Количество страниц или None, если не удалось распарсить
@@ -103,15 +111,22 @@ def parse_pages(pages_str):
     Примеры:
         >>> parse_pages("256")
         256
+        >>> parse_pages(256)
+        256
         >>> parse_pages("")
         None
         >>> parse_pages("abc")
         None
     """
-    if not pages_str or not pages_str.strip():
+    if pages_value is None:
+        return None
+    if isinstance(pages_value, int):
+        return pages_value
+    s = str(pages_value).strip()
+    if not s:
         return None
     try:
-        return int(pages_str.strip())
+        return int(s)
     except (ValueError, TypeError):
         return None
 
@@ -138,7 +153,7 @@ def import_books():
         json.JSONDecodeError: Если файл содержит невалидный JSON
     """
     # Открываем и читаем JSON файл с книгами
-    with open('parsing/books7501320ded.json', 'r', encoding='utf-8') as f:
+    with open('JSON/12000_clean.json', 'r', encoding='utf-8') as f:
         books_data = json.load(f)
 
     print(f'Загружено {len(books_data)} книг из JSON')
@@ -163,8 +178,9 @@ def import_books():
             title=book_data.get('title', '')[:200],
             author=book_data.get('author', '')[:100],
             isbn=isbn[:20] if isbn else None,
-            description=book_data.get('description', ''),
+            description=book_data.get('annotation', ''),
             publisher=book_data.get('publisher', '')[:100],
+            genre=book_data.get('category', '')[:100],
 
             # Парсим год издания из строки
             publication_year=parse_year(book_data.get('year')),
@@ -173,7 +189,7 @@ def import_books():
             pages=parse_pages(book_data.get('pages')),
 
             # Определяем тип переплета из текстового описания
-            cover_type=parse_cover_type(book_data.get('cover')),
+            cover_type=parse_cover_type(book_data.get('binding')),
 
             # Серия (может быть None)
             series=book_data.get('series', '')[:200] if book_data.get('series') else None,
@@ -181,8 +197,8 @@ def import_books():
             # Источник: все книги из этого импорта - Эксмо
             source=Book.SOURCE_EKSMO,
 
-            # Язык по умолчанию - русский
-            language='Русский',
+            # Язык из данных JSON
+            language=book_data.get('language', 'Русский'),
 
             # Цена и остаток по умолчанию (будут заполнены позже)
             price=0,
