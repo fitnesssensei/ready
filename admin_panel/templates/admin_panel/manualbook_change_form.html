@@ -150,6 +150,7 @@
                 return;
             }
             var b = data.book;
+            console.log('applyTemplate data:', JSON.stringify(b));
             Object.keys(b).forEach(function(key) {
                 if (key === 'photos') return;
                 setField(key, b[key]);
