@@ -173,7 +173,8 @@ class BaseBookAdmin(admin.ModelAdmin):
     list_display = (
         'sku', 'title', 'category', 'author', 'author_oblozh', 'genre',
         'publisher', 'series', 'language', 'condition', 'cover_type', 'pages',
-        'price', 'old_price', 'stock', 'publication_year', 'created_at',
+        'price', 'old_price', 'stock', 'publication_year',
+        'display_dimensions', 'created_at',
     )
     list_filter = (
         'category', 'genre', 'publisher', 'language', 'condition',
@@ -205,6 +206,19 @@ class BaseBookAdmin(admin.ModelAdmin):
             'classes': ('collapse',),
         }),
     )
+
+    @admin.display(description='Размер (см)', ordering='width')
+    def display_dimensions(self, obj):
+        parts = []
+        if obj.width and obj.length:
+            parts.append(f'{obj.width:.1f}×{obj.length:.1f}')
+        elif obj.width:
+            parts.append(f'{obj.width:.1f}')
+        elif obj.length:
+            parts.append(f'{obj.length:.1f}')
+        if obj.height:
+            parts.append(f'×{obj.height:.1f}' if parts else f'{obj.height:.1f}')
+        return ' '.join(parts) if parts else '—'
 
     def formfield_for_dbfield(self, db_field, **kwargs):
         if db_field.name == 'photos':
