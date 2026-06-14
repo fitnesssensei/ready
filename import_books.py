@@ -1,7 +1,7 @@
 """
 Скрипт импорта книг из JSON файла в базу данных.
 
-Импортирует книги из файла parsing/eksmo_books_mt_deduped.json
+Импортирует книги из файла JSON/13000_libex.json
 в таблицу admin_panel_book с источником 'eksmo'.
 
 Использование:
@@ -13,73 +13,162 @@
     - Книги без ISBN добавляются без проверки на дубликаты
     - Автоматическое определение типа переплета из текстового описания
     - Парсинг года издания и количества страниц из строк
+    - Парсинг размеров (width/length/height) из полей format/thickness
+      или из текста аннотации (например, «Размеры: 125x200x21 мм»)
+    - Парсинг веса из аннотации (например, «Вес: 258 г», «Масса: 708 г»)
     - Установка source='eksmo' для всех импортированных книг
     - Логирование прогресса каждые 500 книг
 
 Результат:
-    Выводит статистику: количество импортированных и пропущенных книг
+    Выводит статистику: количество импортированных и пропущенных книг,
+    а также сколько размеров и веса удалось извлечь.
 """
 
 import json
 import os
+import re
+from decimal import Decimal
+
 import django
 
-# Настройка Django окружения для работы с моделями
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shop_admin.settings')
 django.setup()
 
 from admin_panel.models import Book
 
 
-def parse_cover_type(cover_str):
+# ═══════════════════════════════════════════════════════════════════
+# Парсинг размеров и веса (перенесено из update_eksmo_dimensions.py)
+# ═══════════════════════════════════════════════════════════════════
+
+
+def parse_format_dims(raw: str) -> tuple[Decimal | None, Decimal | None]:
     """
-    Определить тип переплета из текстового описания.
+    Размеры из поля format: «125x200 мм» → ширина и длина в мм.
 
     Args:
-        cover_str: Строка с описанием переплета (например, "Мягкая обложка", "Твердый переплет")
+        raw: Строка вида «115x180 мм» или «125×200 мм»
 
     Returns:
-        str: 'soft' для мягкого переплета, 'hard' для твердого (по умолчанию)
-
-    Примеры:
-        >>> parse_cover_type("Мягкая обложка")
-        'soft'
-        >>> parse_cover_type("Твердый переплет")
-        'hard'
-        >>> parse_cover_type("")
-        'hard'
+        tuple (width, length) в мм, или (None, None) если не удалось распарсить
     """
+    match = re.search(r'(\d+)\s*[xх×]\s*(\d+)', raw or '', re.IGNORECASE)
+    if not match:
+        return None, None
+    w_mm, l_mm = int(match.group(1)), int(match.group(2))
+    return Decimal(w_mm), Decimal(l_mm)
+
+
+def parse_thickness_mm(raw: str) -> Decimal | None:
+    """
+    Толщина из поля thickness: «18 мм» → высота в мм.
+
+    Args:
+        raw: Строка вида «18 мм»
+
+    Returns:
+        Decimal (высота в мм) или None
+    """
+    match = re.search(r'(\d+)', raw or '')
+    if not match:
+        return None
+    value = int(match.group(1))
+    if value <= 0:
+        return None
+    return Decimal(value)
+
+
+def parse_dims_from_annotation(annotation: str) -> tuple[Decimal | None, Decimal | None, Decimal | None]:
+    """
+    Извлечь размеры из текста аннотации.
+
+    Ищет паттерн «Размеры: WxHxD мм» (3 размера) или «Размеры: WxH мм» (2 размера)
+    в тексте аннотации.
+
+    Args:
+        annotation: Текст аннотации
+
+    Returns:
+        tuple (width, length, height) в мм, или (None, None, None)
+    """
+    if not annotation:
+        return None, None, None
+
+    # Ищем «Размеры: 267x214x21 мм» или «Размеры: 267х214х21 мм»
+    match_3d = re.search(
+        r'[Рр]азмер[а-я]*\s*[:]\s*'
+        r'(\d+)\s*[xх×]\s*(\d+)\s*[xх×]\s*(\d+)',
+        annotation,
+    )
+    if match_3d:
+        return (
+            Decimal(match_3d.group(1)),
+            Decimal(match_3d.group(2)),
+            Decimal(match_3d.group(3)),
+        )
+
+    # Ищем «Размеры: 125x200 мм» (только ширина и длина)
+    match_2d = re.search(
+        r'[Рр]азмер[а-я]*\s*[:]\s*'
+        r'(\d+)\s*[xх×]\s*(\d+)',
+        annotation,
+    )
+    if match_2d:
+        return (
+            Decimal(match_2d.group(1)),
+            Decimal(match_2d.group(2)),
+            None,
+        )
+
+    return None, None, None
+
+
+def parse_weight_from_annotation(annotation: str) -> Decimal | None:
+    """
+    Извлечь вес из текста аннотации.
+
+    Ищет паттерны «Масса: 708 г», «Вес: 258 г», «Вес книги: 258 гр.»
+    в тексте аннотации.
+
+    Args:
+        annotation: Текст аннотации
+
+    Returns:
+        Decimal (вес в граммах) или None
+    """
+    if not annotation:
+        return None
+
+    match = re.search(
+        r'(?:Масса|Вес|Вес книги|Weight)\s*[:]\s*'
+        r'(\d+)\s*г(?:р)?',
+        annotation,
+    )
+    if match:
+        value = int(match.group(1))
+        if 10 <= value <= 10000:  # sanity check: 10г – 10кг
+            return Decimal(value)
+
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Существующие функции парсинга (год, страницы, переплёт)
+# ═══════════════════════════════════════════════════════════════════
+
+
+def parse_cover_type(cover_str):
+    """Определить тип переплета из текстового описания."""
     if not cover_str:
         return 'hard'
     cover_lower = cover_str.lower()
-    # Проверяем наличие ключевых слов для мягкого переплета
     if 'мягк' in cover_lower or 'обложка' in cover_lower:
         return 'soft'
     return 'hard'
 
 
 def parse_year(year_value):
-    """
-    Извлечь год издания из значения (строка или число).
-
-    Args:
-        year_value: Год (строка, число или None)
-
-    Returns:
-        int or None: Год издания (1800-2030) или None, если не удалось распарсить
-
-    Примеры:
-        >>> parse_year("2024")
-        2024
-        >>> parse_year(2019)
-        2019
-        >>> parse_year("")
-        None
-        >>> parse_year("abc")
-        None
-        >>> parse_year(1500)  # Слишком старый год
-        None
-    """
+    """Извлечь год издания из значения (строка или число)."""
     if year_value is None:
         return None
     if isinstance(year_value, int):
@@ -92,32 +181,13 @@ def parse_year(year_value):
             year = int(s)
         except (ValueError, TypeError):
             return None
-    # Валидация: год должен быть в разумных пределах
     if 1800 <= year <= 2030:
         return year
     return None
 
 
 def parse_pages(pages_value):
-    """
-    Извлечь количество страниц из значения (строка или число).
-
-    Args:
-        pages_value: Количество страниц (строка, число или None)
-
-    Returns:
-        int or None: Количество страниц или None, если не удалось распарсить
-
-    Примеры:
-        >>> parse_pages("256")
-        256
-        >>> parse_pages(256)
-        256
-        >>> parse_pages("")
-        None
-        >>> parse_pages("abc")
-        None
-    """
+    """Извлечь количество страниц из значения (строка или число)."""
     if pages_value is None:
         return None
     if isinstance(pages_value, int):
@@ -131,26 +201,23 @@ def parse_pages(pages_value):
         return None
 
 
+# ═══════════════════════════════════════════════════════════════════
+# Основная функция импорта
+# ═══════════════════════════════════════════════════════════════════
+
+
 def import_books():
     """
     Основная функция импорта книг из JSON файла.
 
-    Читает файл parsing/eksmo_books_mt_deduped.json и импортирует книги
-    в базу данных с использованием батчевой вставки.
+    Читает JSON-файл, парсит все поля включая размеры (width/length/height)
+    и вес книги, и импортирует в базу данных с использованием батчевой вставки.
 
-    Процесс:
-        1. Загрузка JSON файла
-        2. Обработка каждой книги:
-           - Проверка на дубликаты по ISBN + источник (только для книг с ISBN)
-           - Книги без ISBN добавляются без проверки на дубликаты
-           - Парсинг полей (год, страницы, тип переплета)
-           - Добавление в список для вставки
-        3. Батчевая вставка каждые 500 книг
-        4. Вывод статистики
+    Размеры извлекаются (в порядке приоритета):
+        1. Из полей format / thickness (если есть в JSON)
+        2. Из текста аннотации (паттерны «Размеры: WxHxD мм» / «Размеры: WxH мм»)
 
-    Raises:
-        FileNotFoundError: Если файл parsing/eksmo_books_mt_deduped.json не найден
-        json.JSONDecodeError: Если файл содержит невалидный JSON
+    Вес извлекается из аннотации (паттерны «Масса: N г», «Вес: N г»).
     """
     # Открываем и читаем JSON файл с книгами
     with open('JSON/13000_libex.json', 'r', encoding='utf-8') as f:
@@ -158,73 +225,82 @@ def import_books():
 
     print(f'Загружено {len(books_data)} книг из JSON')
 
-    # Списки для накопления книг и статистики
     books_to_create = []
     skipped = 0
+    stats_dims_from_format = 0
+    stats_dims_from_annotation = 0
+    stats_weight_from_annotation = 0
 
-    # Обрабатываем каждую книгу из JSON
     for idx, book_data in enumerate(books_data, 1):
         isbn = book_data.get('isbn', '').strip()
 
-        # Проверить дубликат только если есть ISBN
-        # (UniqueConstraint в модели срабатывает только при isbn IS NOT NULL)
         if isbn and Book.objects.filter(isbn=isbn, source=Book.SOURCE_EKSMO).exists():
             skipped += 1
             continue
 
-        # Создаем объект книги с обработанными данными
+        # ── Парсинг размеров ──────────────────────────────────────
+        # 1. Пробуем поля format/thickness (как в exmo_books.json)
+        width, length = parse_format_dims(book_data.get('format', ''))
+        height = parse_thickness_mm(book_data.get('thickness', ''))
+
+        if width is not None:
+            stats_dims_from_format += 1
+
+        # 2. Если нет — пробуем извлечь из аннотации
+        annotation = book_data.get('annotation', '') or book_data.get('description', '')
+        if width is None:
+            ann_w, ann_l, ann_h = parse_dims_from_annotation(annotation)
+            if ann_w is not None:
+                width, length, height = ann_w, ann_l, ann_h
+                stats_dims_from_annotation += 1
+
+        # ── Парсинг веса из аннотации ─────────────────────────────
+        weight = parse_weight_from_annotation(annotation)
+        if weight is not None:
+            stats_weight_from_annotation += 1
+
         book = Book(
-            # Обрезаем строки до максимальной длины полей модели
             title=book_data.get('title', '')[:200],
             author=book_data.get('author', '')[:100],
             isbn=isbn[:20] if isbn else None,
-            description=book_data.get('annotation', ''),
+            description=annotation,
             publisher=book_data.get('publisher', '')[:100],
             genre=book_data.get('category', '')[:100],
-
-            # Парсим год издания из строки
             publication_year=parse_year(book_data.get('year')),
-
-            # Парсим количество страниц из строки
             pages=parse_pages(book_data.get('pages')),
-
-            # Определяем тип переплета из текстового описания
             cover_type=parse_cover_type(book_data.get('binding')),
-
-            # Серия (может быть None)
             series=book_data.get('series', '')[:200] if book_data.get('series') else None,
-
-            # Источник: все книги из этого импорта - Эксмо
             source=Book.SOURCE_EKSMO,
-
-            # Язык из данных JSON
             language=book_data.get('language', 'Русский'),
-
-            # Цена и остаток по умолчанию (будут заполнены позже)
+            width=width,
+            length=length,
+            height=height,
+            weight=weight,
             price=0,
             stock=0,
         )
         books_to_create.append(book)
 
-        # Батчевая вставка каждые 500 книг для оптимизации
-        # Это значительно быстрее, чем вставлять по одной книге
         if len(books_to_create) >= 500:
             Book.objects.bulk_create(books_to_create, ignore_conflicts=True)
             print(f'Импортировано {idx} / {len(books_data)} книг...')
             books_to_create = []
 
-    # Вставить оставшиеся книги (меньше 500)
     if books_to_create:
         Book.objects.bulk_create(books_to_create, ignore_conflicts=True)
 
-    # Подсчитываем итоговое количество импортированных книг
     total_imported = Book.objects.filter(source=Book.SOURCE_EKSMO).count()
 
-    # Выводим статистику
-    print(f'\n✅ Импорт завершен!')
+    print(f'\n\u2705 Импорт завершен!')
     print(f'Всего импортировано: {total_imported} книг')
     print(f'Пропущено (дубликаты по ISBN): {skipped}')
+    print()
+    print(f'\U0001f4cf Размеры (width/length/height):')
+    print(f'   — из поля format/thickness: {stats_dims_from_format}')
+    print(f'   — из текста аннотации:      {stats_dims_from_annotation}')
+    print(f'\u2696\ufe0f Вес (weight) из аннотации:   {stats_weight_from_annotation}')
 
 
 if __name__ == '__main__':
     import_books()
+
