@@ -207,7 +207,7 @@ class BaseBookAdmin(admin.ModelAdmin):
         }),
     )
 
-    @admin.display(description='Размер (см)', ordering='width')
+    @admin.display(description='Размер (мм)', ordering='width')
     def display_dimensions(self, obj):
         parts = []
         if obj.width and obj.length:

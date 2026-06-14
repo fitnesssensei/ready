@@ -24,15 +24,15 @@ from django.db.models import Q
 from admin_panel.models import Book
 
 
-def parse_thickness_cm(raw: str) -> Decimal | None:
-    """Толщина из поля thickness: «21 мм» → высота в см (2.1)."""
+def parse_thickness_mm(raw: str) -> Decimal | None:
+    """Толщина из поля thickness: «21 мм» → высота в мм (21)."""
     match = re.search(r'(\d+)', raw or '')
     if not match:
         return None
     value = int(match.group(1))
     if value <= 0:
         return None
-    return Decimal(value) / 10
+    return Decimal(value)
 
 
 def isbn_digits_only(raw: str) -> str:
@@ -41,12 +41,12 @@ def isbn_digits_only(raw: str) -> str:
 
 
 def parse_format_dims(raw: str) -> tuple[Decimal | None, Decimal | None]:
-    """Размеры из поля format: «125x200 мм» → ширина и длина в см."""
+    """Размеры из поля format: «125x200 мм» → ширина и длина в мм."""
     match = re.search(r'(\d+)\s*[xх×]\s*(\d+)', raw or '', re.IGNORECASE)
     if not match:
         return None, None
     w_mm, l_mm = int(match.group(1)), int(match.group(2))
-    return Decimal(w_mm) / 10, Decimal(l_mm) / 10
+    return Decimal(w_mm), Decimal(l_mm)
 
 
 class Command(BaseCommand):
@@ -97,7 +97,7 @@ class Command(BaseCommand):
                 continue
 
             width, length = parse_format_dims(row.get('format', ''))
-            height = parse_thickness_cm(row.get('thickness', ''))
+            height = parse_thickness_mm(row.get('thickness', ''))
 
             if width is None and length is None and height is None:
                 skipped_no_dims += 1

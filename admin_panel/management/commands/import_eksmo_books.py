@@ -78,18 +78,18 @@ def parse_int(raw) -> int | None:
 
 def parse_format_dims(raw: str) -> tuple[Decimal | None, Decimal | None]:
     """
-    Размеры из поля format: «125x200 мм» → ширина и длина в см.
+    Размеры из поля format: «125x200 мм» → ширина и длина в мм.
     """
     match = re.search(r'(\d+)\s*[xх×]\s*(\d+)', raw or '', re.IGNORECASE)
     if not match:
         return None, None
     w_mm, l_mm = int(match.group(1)), int(match.group(2))
-    return Decimal(w_mm) / 10, Decimal(l_mm) / 10
+    return Decimal(w_mm), Decimal(l_mm)
 
 
-def parse_thickness_cm(raw: str) -> Decimal | None:
+def parse_thickness_mm(raw: str) -> Decimal | None:
     """
-    Толщина из поля thickness: «21 мм» → высота в см (2.1).
+    Толщина из поля thickness: «21 мм» → высота в мм (21).
     """
     match = re.search(r'(\d+)', raw or '')
     if not match:
@@ -97,7 +97,7 @@ def parse_thickness_cm(raw: str) -> Decimal | None:
     value = int(match.group(1))
     if value <= 0:
         return None
-    return Decimal(value) / 10
+    return Decimal(value)
 
 
 def book_from_row(row: dict) -> Book | None:
@@ -110,7 +110,7 @@ def book_from_row(row: dict) -> Book | None:
         return None
 
     width, length = parse_format_dims(row.get('format', ''))
-    height = parse_thickness_cm(row.get('thickness', ''))
+    height = parse_thickness_mm(row.get('thickness', ''))
 
     return Book(
         source=Book.SOURCE_EKSMO,
