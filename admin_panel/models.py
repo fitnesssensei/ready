@@ -105,7 +105,7 @@ class Book(models.Model):
     )
     author = models.CharField(max_length=100, verbose_name="Автор", default="")
     author_oblozh = models.CharField(max_length=100, verbose_name="Автор на обложке", default="")
-    genre = models.CharField(max_length=100, verbose_name="Жанр", default="")
+    genre = models.CharField(max_length=100, verbose_name="Направление", default="")
     publisher = models.CharField(max_length=100, verbose_name="Издательство", default="")
     series = models.CharField(max_length=200, verbose_name="Серия", blank=True, null=True)
     publication_year = models.PositiveIntegerField(verbose_name="Год издания", blank=True, null=True)
