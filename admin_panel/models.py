@@ -117,7 +117,8 @@ class Book(models.Model):
     author = models.CharField(max_length=100, verbose_name="Автор", default="")
     author_oblozh = models.CharField(max_length=100, verbose_name="Автор на обложке", default="")
     genre = models.CharField(max_length=100, verbose_name="Направление", default="")
-    Target_audience = models.CharField(max_length=100, verbose_name="Целевая аудитория", default="")  # целевая аудитория
+    target_audience = models.CharField(max_length=100, verbose_name="Целевая аудитория", default="")  # целевая аудитория 
+    age_restrictions = models.CharField(max_length=100, verbose_name="Возрастные ограничения", default="")  # возраст огран  
     publisher = models.CharField(max_length=100, verbose_name="Издательство", default="")
     series = models.CharField(max_length=200, verbose_name="Серия", blank=True, null=True)
     publication_year = models.PositiveIntegerField(verbose_name="Год издания", blank=True, null=True)

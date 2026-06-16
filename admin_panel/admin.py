@@ -92,7 +92,8 @@ def _book_to_form_dict(book: Book, *, for_manual_template: bool = False) -> dict
         'author': book.author,
         'author_oblozh': book.author_oblozh,
         'genre': book.genre,
-        'Target_audience': book.Target_audience or '',
+        'target_audience': book.target_audience or '',
+        'age_restrictions': book.age_restrictions or '',
         'publisher': book.publisher,
         'series': book.series or '',
         'publication_year': book.publication_year or '',
@@ -174,13 +175,13 @@ class BaseBookAdmin(admin.ModelAdmin):
     actions = ['export_selected_to_excel', 'export_selected_to_ozon']
 
     list_display = (
-        'sku', 'title', 'category', 'author', 'author_oblozh', 'genre', 'Target_audience',
-        'publisher', 'series', 'language', 'condition', 'cover_type', 'paper_type', 'hashtags', 'pages', # добавил paper_type - тип бумаги, хештеги
+        'sku', 'title', 'category', 'author', 'author_oblozh', 'genre', 'target_audience', 'age_restrictions', # добавил - целевая аудит, возростные ограничения
+        'publisher', 'series', 'language', 'condition', 'cover_type', 'paper_type', 'hashtags', 'pages', # добавил - тип бумаги, хештеги
         'price', 'old_price', 'stock', 'publication_year',
         'display_dimensions', 'created_at',
     )
     list_filter = (
-        'category', 'genre', 'Target_audience', 'publisher', 'language', 'condition',
+        'category', 'genre', 'target_audience', 'age_restrictions', 'publisher', 'language', 'condition',
         'cover_type', 'paper_type', 'hashtags', 'vat_rate', 'publication_year', 'publication_date', 'created_at',  # добавил paper_type - тип бумаги, хештеги, 
     )
     search_fields = (
@@ -193,8 +194,8 @@ class BaseBookAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Основная информация', {
             'fields': (
-                'sku', 'title', 'category', 'author', 'author_oblozh', 'genre', 'Target_audience',
-                'publisher', 'series', 'publication_year', 'language', 'condition',
+                'sku', 'title', 'category', 'author', 'author_oblozh', 'genre', 'target_audience',  # целев аудитория
+                'age_restrictions', 'publisher', 'series', 'publication_year', 'language', 'condition',  # возраст огран
                 'cover_type', 'paper_type', 'hashtags', 'pages', 'photos', 'description',  # добавил - тип бумаги, хештеги
             )
         }),
@@ -389,8 +390,8 @@ class EksmoBookAdmin(BaseBookAdmin):
     fieldsets = (
         ('Основная информация', {
             'fields': (
-                'sku', 'title', 'category', 'author', 'author_oblozh', 'genre', 'Target_audience',
-                'publisher', 'series', 'publication_year', 'language', 'condition',
+                'sku', 'title', 'category', 'author', 'author_oblozh', 'genre', 'target_audience',  # целев аудитор
+                'age_restrictions', 'publisher', 'series', 'publication_year', 'language', 'condition',  # возраст огран
                 'cover_type','paper_type', 'hashtags', 'pages', 'description',  # добавил - тип бумаги, хештеги
             )
         }),
