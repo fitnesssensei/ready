@@ -1,3 +1,6 @@
+from email.policy import default
+from random import choice
+from webbrowser import get
 from django.db import models
 
 
@@ -65,6 +68,10 @@ class Category(models.Model):
     def __str__(self):
         return f"{self.name} (Ozon ID: {self.ozon_category_id})"
 
+def get_default_category():
+    # Возвращаем первую категорию из списка (по алфавиту)
+    cat = Category.objects.order_by('name').first()
+    return cat.id if cat else None
 
 class Book(models.Model):
     SOURCE_MANUAL = 'manual'
@@ -73,11 +80,27 @@ class Book(models.Model):
     SOURCE_CHOICES = [
         (SOURCE_MANUAL, 'Админка'),
         (SOURCE_EKSMO, 'Импорт Эксмо'),
+
     ]
 
     COVER_TYPES = [
-        ('hard', 'Твердый'),
-        ('soft', 'Мягкий'),
+        ('hard', 'Твердый переплет'),
+        ('soft', 'Мягкая обложка'),
+        ('softSuper', 'Мягкая обложка, суперобложка'),
+        ('klapan', 'Обложка с клапанами'),
+        ('klapanSuper', 'Обложка с клапанами, суперобложка'),
+        ('poluKozha', 'Полукожаный переплет'),
+        ('hardSuper', 'Твердый переплет, суперобложка'),
+        ('textile', 'Тканевый переплет'),
+        ('textileSuper', 'Тканевый переплет, суперобложка'),
+        ('block', 'Блок для переплета'),
+        ('Bumvinyl', 'Бумвинил'),
+        ('integral', 'Интегральный переплет'),
+        ('integralSuper', 'Интегральный переплет, суперобложка'),
+        ('leather', 'Кожаный переплет'),
+        ('sheet', 'Листовое издание'),
+        ('copper', 'Медный переплет'),
+
     ]
 
     VAT_RATES = [
@@ -85,11 +108,47 @@ class Book(models.Model):
         ('10', '10%'),
         ('20', '20%'),
     ]
+    
+    TARGET_AUDIENCE = [
+        ('for adults', 'Для взрослых'),
+        ('for children', 'Для детей'),
+
+    ]
+
+    AGE_RESTRICTIONS = [
+        ('18+', '18+'),
+        ('16+', '16+'),
+        ('14+', '14+'),
+        ('12+', '12+'),
+        ('10+', '10+'),
+        ('9+', '9+'),
+        
+    ]
+
+    LANGUAGE_CHOICES = [
+        ('russian', 'Русский'),
+        ('english', 'Английский'),
+        ('french', 'Французский'),
+        ('german', 'Немецкий'),
+
+    ]
 
     CONDITION_CHOICES = [
         ('excellent', 'Отличная'),
         ('good', 'Хорошая'),
+        ('veriGood', 'Очень хорошая'),
+        ('satisfactorily', 'Удовлетворительная'),
+        ('bad', 'Плохая'),
+
     ]
+
+    BOOK_TYPE = [
+        ('printed book', 'Печатная книга'),
+        ('second', 'Second-hand книга'),
+        ('bookinist', 'Букинистика'),
+    ]
+
+
     # строка "тип бумаги"
     PAPER_TYPES = [
         ('offset', 'Офсетная'),
@@ -99,7 +158,14 @@ class Book(models.Model):
         ('kremovaya', 'Кремовая'),
         ('design', 'Дизайнерская'),
         ('karton', 'Картон'),
-        ('coated', 'Мелованная'),
+        ('coated', 'Мелованная глянцевая'),
+        ('coatedMat', 'Меловання матовая'),
+        ('kartograf', 'Картографическая'),
+        ('vtorichka', 'Вторичной переработки'),
+        ('vlaga', 'Влагостойкая'),
+        ('puhlaya', 'Пухлая'),
+        ('samokley', 'Самоклеющаяся'),
+        ('tipograf', 'Типографская'),
     ]
 
     title = models.CharField(max_length=200, verbose_name="Название", default="")
@@ -110,28 +176,36 @@ class Book(models.Model):
         verbose_name="Источник",
         db_index=True,
     )
+    
     sku = models.CharField(max_length=50, unique=True, blank=True, null=True, verbose_name="Артикул")
     category = models.ForeignKey(
-        Category, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Категория"
+        Category, on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name="Категория",
+        default=get_default_category
     )
+
     author = models.CharField(max_length=100, verbose_name="Автор", default="")
     author_oblozh = models.CharField(max_length=100, verbose_name="Автор на обложке", blank=True, null=True)
     genre = models.CharField(max_length=100, verbose_name="Направление", blank=True, null=True)
-    target_audience = models.CharField(max_length=100, verbose_name="Целевая аудитория",default="", blank=True)  # целевая аудитория 
-    age_restrictions = models.CharField(max_length=100, verbose_name="Возрастные ограничения", default="", blank=True)  # возраст огран  
+    target_audience = models.CharField(max_length=100, choices=TARGET_AUDIENCE, verbose_name="Целевая аудитория", default='for adults', blank=True)  # целевая аудитория 
+    age_restrictions = models.CharField(max_length=100, choices=AGE_RESTRICTIONS, verbose_name="Возрастные ограничения", default='18+', blank=True)  # возраст огран  
     publisher = models.CharField(max_length=100, verbose_name="Издательство", default="")
     series = models.CharField(max_length=200, verbose_name="Серия", blank=True, null=True)
     publication_year = models.PositiveIntegerField(verbose_name="Год издания", blank=True, null=True)
-    language = models.CharField(max_length=50, verbose_name="Язык издания", default="")
+    language = models.CharField(max_length=50, choices=LANGUAGE_CHOICES, verbose_name="Язык издания", default='russian')  # Язык издания
     condition = models.CharField(
-        max_length=20, choices=CONDITION_CHOICES, verbose_name="Сохранность", blank=True, null=True
+        max_length=20, choices=CONDITION_CHOICES, verbose_name="Сохранность", default='good', blank=True  # состояние 
     )
     cover_type = models.CharField(
-        max_length=10, choices=COVER_TYPES, verbose_name="Тип переплёта", default='hard'
+        max_length=20, choices=COVER_TYPES, verbose_name="Тип переплёта", default='hard'
     )
+
+    book_type = models.CharField(
+        max_length=20, choices=BOOK_TYPE, verbose_name="Тип книги", default='printed book', blank=True)  # тип книги 
+
     # строка "тип бумаги"
     paper_type = models.CharField(
-    max_length=20, choices=PAPER_TYPES, verbose_name="Тип бумаги", blank=True, null=True
+    max_length=20, choices=PAPER_TYPES, verbose_name="Тип бумаги", default='offset', blank=True   # "тип бумаги"
     )
     # blank=True - для строк ; обе делают поле не обязательным 
     # null=True больше подходит для числовых 
@@ -147,7 +221,7 @@ class Book(models.Model):
     # ✅ FIX: default должен быть кодом из choices ('0'), а не отображаемым текстом ('Без НДС')
     vat_rate = models.CharField(max_length=2, choices=VAT_RATES, verbose_name="Ставка НДС", default='0')
     stock = models.PositiveIntegerField(verbose_name="Остаток на складе", default=1)
-    isbn = models.CharField(max_length=20, blank=True, null=True, verbose_name="ISBN")
+    isbn = models.CharField(max_length=20, verbose_name="ISBN", blank=True, null=True, )
     weight = models.DecimalField(
         max_digits=8, decimal_places=4, verbose_name="Вес с упаковкой (г)", blank=True, null=True
     )
