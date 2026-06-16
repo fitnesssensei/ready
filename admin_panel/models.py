@@ -131,6 +131,7 @@ class Book(models.Model):
     paper_type = models.CharField(
     max_length=20, choices=PAPER_TYPES, verbose_name="Тип бумаги", blank=True, null=True
     )
+    hashtags = models.CharField(max_length=200, verbose_name="Хештеги", blank=True, null=True)  # строка "хештеги"
     pages = models.PositiveIntegerField(verbose_name="Количество страниц", blank=True, null=True)
     photos = models.JSONField(default=list, verbose_name="Фотографии", blank=True)
     description = models.TextField(blank=True, verbose_name="Описание")
