@@ -98,7 +98,8 @@ def _book_to_form_dict(book: Book, *, for_manual_template: bool = False) -> dict
         'language': book.language,
         'condition': book.condition or '',
         'cover_type': book.cover_type,
-        'paper_type': book.paper_type or '', # строка "тип бумаги"
+        'paper_type': book.paper_type or '',  # строка "тип бумаги"
+        'hashtags': book.hashtags or '',  # строка "хештеги"
         'pages': book.pages or '',
         'description': book.description,
         'isbn': book.isbn or '',
@@ -173,17 +174,17 @@ class BaseBookAdmin(admin.ModelAdmin):
 
     list_display = (
         'sku', 'title', 'category', 'author', 'author_oblozh', 'genre',
-        'publisher', 'series', 'language', 'condition', 'cover_type', 'paper_type', 'pages', # добавил paper_type - тип бумаги
+        'publisher', 'series', 'language', 'condition', 'cover_type', 'paper_type','hashtags', 'pages', # добавил paper_type - тип бумаги, хештеги
         'price', 'old_price', 'stock', 'publication_year',
         'display_dimensions', 'created_at',
     )
     list_filter = (
         'category', 'genre', 'publisher', 'language', 'condition',
-        'cover_type', 'paper_type', 'vat_rate', 'publication_year', 'publication_date', 'created_at',  # добавил paper_type - тип бумаги
+        'cover_type', 'paper_type', 'hashtags', 'vat_rate', 'publication_year', 'publication_date', 'created_at',  # добавил paper_type - тип бумаги, хештеги, 
     )
     search_fields = (
         'sku', 'title', 'author', 'author_oblozh', 'genre',
-        'publisher', 'series', 'language', 'isbn',
+        'publisher', 'series', 'language', 'isbn', 'hashtags',  # добавил хештеги
     )
     ordering = ('-created_at',)
     readonly_fields = ('source', 'created_at', 'updated_at')
@@ -193,7 +194,7 @@ class BaseBookAdmin(admin.ModelAdmin):
             'fields': (
                 'sku', 'title', 'category', 'author', 'author_oblozh', 'genre',
                 'publisher', 'series', 'publication_year', 'language', 'condition',
-                'cover_type', 'paper_type', 'pages', 'photos', 'description',  # добавил paper_type - тип бумаги
+                'cover_type', 'paper_type', 'hashtags', 'pages', 'photos', 'description',  # добавил - тип бумаги, хештеги
             )
         }),
         ('Коммерческая информация', {
@@ -389,7 +390,7 @@ class EksmoBookAdmin(BaseBookAdmin):
             'fields': (
                 'sku', 'title', 'category', 'author', 'author_oblozh', 'genre',
                 'publisher', 'series', 'publication_year', 'language', 'condition',
-                'cover_type','paper_type', 'pages', 'description',  # добавил paper_type - тип бумаги
+                'cover_type','paper_type', 'hashtags', 'pages', 'description',  # добавил - тип бумаги, хештеги
             )
         }),
         ('Коммерческая информация', {
