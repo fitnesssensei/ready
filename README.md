@@ -144,12 +144,13 @@ python manage.py runserver
 - `publisher` — издательство
 - `series` — серия
 - `publication_year` — год издания
-- `language` — язык
-- `condition` — сохранность: `excellent`, `good`
-- `cover_type` — тип переплёта: `hard`, `soft`
+- `language` — язык издания: `russian`, `english`, `french`, `german`
+- `condition` — сохранность: `excellent`, `good`, `veriGood`, `satisfactorily`, `bad`
+- `cover_type` — тип переплёта: `hard`, `soft`, `softSuper`, `klapan`, `klapanSuper`, `poluKozha`, `hardSuper`, `textile`, `textileSuper`, `block`, `Bumvinyl`, `integral`, `integralSuper`, `leather`, `sheet`, `copper`
 - `paper_type` — тип бумаги: `offset`, `art`, `newsprint`, `recycled`, `kremovaya`, `design`, `karton`, `coated`
-- `target_audience` — целевая аудитория
-- `age_restrictions` — возрастные ограничения
+- `target_audience` — целевая аудитория: `for adults`, `for children`
+- `age_restrictions` — возрастные ограничения: `18+`, `16+`, `14+`, `12+`, `10+`, `9+`
+- `book_type` — тип книги: `printed book`, `second`, `bookinist`
 - `hashtags` — хештеги
 - `pages` — количество страниц
 - `photos` — JSONField со списком путей к фото
@@ -202,6 +203,7 @@ python manage.py runserver
 - ручное создание книги из каталога Эксмо
 - поиск книг по артикулу, названию или ISBN (по всем каталогам)
 - автоматическая подстановка данных книги Эксмо в форму ручной книги
+- автоматическое определение категории по году издания (≤2010 → «Букинистическое издание», ≥2011 → «Современные печатные издания»)
 
 ### Поиск при добавлении книги
 
@@ -214,6 +216,19 @@ python manage.py runserver
 4. Для ISBN-запросов нормализуются цифры и дефисы.
 5. Найденная книга подставляется в форму. При сохранении создаётся новая запись с `source='manual'`.
 6. Книга отображается и в «Каталог — админка», и в «База книг».
+
+### Автоопределение категории по году издания
+
+При сохранении книги в админке (`BaseBookAdmin.save_model`) автоматически определяется категория на основе года издания:
+
+| Год издания | Категория |
+|---|---|
+| Не указан | Категория не меняется |
+| ≤ 2010 | «Букинистическое издание» |
+| ≥ 2011 | «Современные печатные издания» |
+
+Категории создаются автоматически через `get_or_create` при первом сохранении.
+Работает для обоих разделов: «Каталог — админка» и «База книг».
 
 ---
 
@@ -529,6 +544,11 @@ Custom admin routes для ручных книг:
 - конвертация веса в граммы
 - исправления constraints и verbose names
 - добавление paper_type (тип бумаги), target_audience (целевая аудитория), age_restrictions (возрастные ограничения), hashtags
+- добавление book_type (тип книги: печатная, second-hand, букинистика)
+- расширение cover_type (добавлены: softSuper, klapan, klapanSuper, poluKozha, hardSuper, textile, textileSuper, block, Bumvinyl, integral, integralSuper, leather, sheet, copper)
+- расширение condition (добавлены: veriGood, satisfactorily, bad)
+- добавление choices для language (russian, english, french, german)
+- добавление choices для target_audience и age_restrictions
 Текущая актуальная схема описана в `admin_panel/models.py`; именно её следует считать источником правды.
 
 ---
@@ -583,6 +603,8 @@ sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book
    Для восстановления полного каталога нужны внешние JSON/Excel-файлы или серверная БД.
 8. **В рабочей области уже есть изменения в старых `.md`-файлах.**  
    Этот файл создан отдельно как новая документация проекта.
+9. **Автоматическое определение категории.**  
+   Категория присваивается по году издания при сохранении книги. Логика в `BaseBookAdmin.save_model()`. 
 
 ---
 
