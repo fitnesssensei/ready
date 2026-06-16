@@ -250,6 +250,16 @@ class BaseBookAdmin(admin.ModelAdmin):
                 logger.debug("Saved book photo: %s", saved_path)
 
         obj.photos = (existing_photos + new_photo_paths)[:10]
+
+        # Автоопределение категории по году издания
+        if obj.publication_year:
+            if obj.publication_year <= 2010:
+                cat_name = 'Букинистическое издание'
+            else:
+                cat_name = 'Современные печатные издания'
+            category, _ = Category.objects.get_or_create(name=cat_name)
+            obj.category = category
+
         self._set_source(obj)
         super().save_model(request, obj, form, change)
 
