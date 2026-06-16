@@ -98,6 +98,7 @@ def _book_to_form_dict(book: Book, *, for_manual_template: bool = False) -> dict
         'language': book.language,
         'condition': book.condition or '',
         'cover_type': book.cover_type,
+        'paper_type': book.paper_type or '', # строка "тип бумаги"
         'pages': book.pages or '',
         'description': book.description,
         'isbn': book.isbn or '',
@@ -172,13 +173,13 @@ class BaseBookAdmin(admin.ModelAdmin):
 
     list_display = (
         'sku', 'title', 'category', 'author', 'author_oblozh', 'genre',
-        'publisher', 'series', 'language', 'condition', 'cover_type', 'pages',
+        'publisher', 'series', 'language', 'condition', 'cover_type', 'paper_type', 'pages', # добавил paper_type - тип бумаги
         'price', 'old_price', 'stock', 'publication_year',
         'display_dimensions', 'created_at',
     )
     list_filter = (
         'category', 'genre', 'publisher', 'language', 'condition',
-        'cover_type', 'vat_rate', 'publication_year', 'publication_date', 'created_at',
+        'cover_type', 'paper_type', 'vat_rate', 'publication_year', 'publication_date', 'created_at',  # добавил paper_type - тип бумаги
     )
     search_fields = (
         'sku', 'title', 'author', 'author_oblozh', 'genre',
@@ -192,7 +193,7 @@ class BaseBookAdmin(admin.ModelAdmin):
             'fields': (
                 'sku', 'title', 'category', 'author', 'author_oblozh', 'genre',
                 'publisher', 'series', 'publication_year', 'language', 'condition',
-                'cover_type', 'pages', 'photos', 'description',
+                'cover_type', 'paper_type', 'pages', 'photos', 'description',  # добавил paper_type - тип бумаги
             )
         }),
         ('Коммерческая информация', {
@@ -388,7 +389,7 @@ class EksmoBookAdmin(BaseBookAdmin):
             'fields': (
                 'sku', 'title', 'category', 'author', 'author_oblozh', 'genre',
                 'publisher', 'series', 'publication_year', 'language', 'condition',
-                'cover_type', 'pages', 'description',
+                'cover_type','paper_type', 'pages', 'description',  # добавил paper_type - тип бумаги
             )
         }),
         ('Коммерческая информация', {

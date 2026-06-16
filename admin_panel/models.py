@@ -90,6 +90,17 @@ class Book(models.Model):
         ('excellent', 'Отличная'),
         ('good', 'Хорошая'),
     ]
+    # строка "тип бумаги"
+    PAPER_TYPES = [
+        ('offset', 'Офсетная'),
+        ('art', 'Художественная'),
+        ('newsprint', 'Газетная'),
+        ('recycled', 'Макулатурная'),
+        ('kremovaya', 'Кремовая'),
+        ('design', 'Дизайнерская'),
+        ('karton', 'Картон'),
+        ('coated', 'Мелованная'),
+    ]
 
     title = models.CharField(max_length=200, verbose_name="Название", default="")
     source = models.CharField(
@@ -115,6 +126,10 @@ class Book(models.Model):
     )
     cover_type = models.CharField(
         max_length=10, choices=COVER_TYPES, verbose_name="Тип переплёта", default='hard'
+    )
+    # строка "тип бумаги"
+    paper_type = models.CharField(
+    max_length=20, choices=PAPER_TYPES, verbose_name="Тип бумаги", blank=True, null=True
     )
     pages = models.PositiveIntegerField(verbose_name="Количество страниц", blank=True, null=True)
     photos = models.JSONField(default=list, verbose_name="Фотографии", blank=True)

@@ -58,5 +58,11 @@ python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 sudo systemctl restart gunicorn
 
+# миграции
+source venv/bin/activate
+python manage.py migrate
+И перезапусти сервис:
+sudo systemctl restart gunicorn
+
 # посмотреть на сервере сколько книг имеют размеры 
 sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book WHERE height IS NOT NULL AND length IS NOT NULL AND width IS NOT NULL;"
