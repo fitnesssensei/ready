@@ -115,10 +115,10 @@ class Book(models.Model):
         Category, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Категория"
     )
     author = models.CharField(max_length=100, verbose_name="Автор", default="")
-    author_oblozh = models.CharField(max_length=100, verbose_name="Автор на обложке", default="")
-    genre = models.CharField(max_length=100, verbose_name="Направление", default="")
-    target_audience = models.CharField(max_length=100, verbose_name="Целевая аудитория", default="")  # целевая аудитория 
-    age_restrictions = models.CharField(max_length=100, verbose_name="Возрастные ограничения", default="")  # возраст огран  
+    author_oblozh = models.CharField(max_length=100, verbose_name="Автор на обложке", blank=True, null=True)
+    genre = models.CharField(max_length=100, verbose_name="Направление", blank=True, null=True)
+    target_audience = models.CharField(max_length=100, verbose_name="Целевая аудитория",default="", blank=True)  # целевая аудитория 
+    age_restrictions = models.CharField(max_length=100, verbose_name="Возрастные ограничения", default="", blank=True)  # возраст огран  
     publisher = models.CharField(max_length=100, verbose_name="Издательство", default="")
     series = models.CharField(max_length=200, verbose_name="Серия", blank=True, null=True)
     publication_year = models.PositiveIntegerField(verbose_name="Год издания", blank=True, null=True)
@@ -136,8 +136,8 @@ class Book(models.Model):
     hashtags = models.CharField(max_length=200, verbose_name="Хештеги", blank=True, null=True)  # хештеги"
     pages = models.PositiveIntegerField(verbose_name="Количество страниц", blank=True, null=True)
     photos = models.JSONField(default=list, verbose_name="Фотографии", blank=True)
-    description = models.TextField(blank=True, verbose_name="Описание")
-    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена", default=0)
+    description = models.TextField(blank=True, verbose_name="Описание", default="")
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена", blank=True, null=True)  # цена не обязательно
     old_price = models.DecimalField(
         max_digits=10, decimal_places=2, verbose_name="Старая цена / цена до скидки",
         blank=True, null=True
