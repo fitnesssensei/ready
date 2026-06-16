@@ -31,56 +31,59 @@ def _is_isbn_query(query: str) -> bool:
     return digits >= 4 and digits == len(compact)
 
 
-def _search_eksmo_books(query: str):
+def _search_all_books(query: str):
     """
-    Поиск книг из каталога Эксмо.
-    
+    Универсальный поиск книг по всем источникам (каталог админка + база книг Эксмо).
+
+    Используется при добавлении книги в «Каталог — админка»,
+    чтобы пользователь мог найти книгу в любой базе данных.
+
     Логика поиска:
-    - Если запрос похож на ISBN (только цифры и дефисы), ищем по ISBN
-    - Поиск по ISBN работает независимо от наличия дефисов:
-      * Нормализуем запрос (удаляем дефисы и пробелы)
-      * Нормализуем ISBN в базе данных (удаляем дефисы и пробелы)
-      * Сравниваем нормализованные значения
-    - Иначе ищем по названию книги
-    
+    - Если запрос похож на ISBN (только цифры и дефисы) → ищем по ISBN
+    - Иначе → ищем по артикулу, названию или ISBN (нечёткое сравнение)
+
     Args:
-        query: Строка поиска (может быть ISBN или название)
-        
+        query: Строка поиска (артикул, название или ISBN)
+
     Returns:
-        QuerySet с найденными книгами
+        QuerySet с найденными книгами (макс. EKSMO_SEARCH_LIMIT)
     """
-    qs = Book.objects.filter(source=Book.SOURCE_EKSMO)
+    from django.db.models import Q
+
+    # Ищем среди ВСЕХ книг, без фильтрации по source
+    qs = Book.objects.all()
     q = query.strip()
     if len(q) < 2:
         return qs.none()
-    
-    # Проверяем, является ли запрос ISBN-подобным
+
+    # --- ISBN-поиск ---
+    # Если запрос состоит только из цифр и похож на ISBN,
+    # нормализуем его и сравниваем с каждым ISBN в базе.
+    # Нужен ручной цикл, т.к. в БД ISBN могут храниться с дефисами/пробелами.
     if _is_isbn_query(q):
-        # Нормализуем запрос: удаляем все дефисы и пробелы, оставляем только цифры
         query_digits = _normalize_isbn(q)
-        
-        # Получаем все книги и фильтруем в Python
-        # Это нужно потому что в базе ISBN могут храниться с дефисами или без
-        # и нам нужно нормализовать оба значения для корректного сравнения
         all_books = list(qs)
         filtered_books = []
-        
+
         for book in all_books:
             if not book.isbn:
                 continue
-            # Нормализуем ISBN из базы данных: удаляем дефисы и пробелы
             book_isbn_normalized = _normalize_isbn(book.isbn)
-            # Проверяем, содержится ли нормализованный запрос в нормализованном ISBN
             if query_digits in book_isbn_normalized:
                 filtered_books.append(book.pk)
-        
-        # Возвращаем отфильтрованный queryset по списку ID
+
         if filtered_books:
             return qs.filter(pk__in=filtered_books)
         return qs.none()
-    
-    # Если это не ISBN-запрос, ищем по названию
-    return qs.filter(title__icontains=q)
+
+    # --- Текстовый поиск ---
+    # Ищем по трём полям: артикул, название, ISBN.
+    # icontains — регистронезависимое частичное совпадение.
+    return qs.filter(
+        Q(sku__icontains=q) |
+        Q(title__icontains=q) |
+        Q(isbn__icontains=q)
+    )
 
 
 def _book_to_form_dict(book: Book, *, for_manual_template: bool = False) -> dict:
@@ -182,7 +185,7 @@ class BaseBookAdmin(admin.ModelAdmin):
     )
     list_filter = (
         'category', 'genre', 'target_audience', 'age_restrictions', 'publisher', 'language', 'condition',
-        'cover_type', 'paper_type', 'hashtags', 'vat_rate', 'publication_year', 'publication_date', 'created_at',  # добавил paper_type - тип бумаги, хештеги, 
+        'cover_type', 'paper_type', 'hashtags', 'vat_rate', 'publication_year', 'publication_date', 'created_at',  # добавил - тип бумаги, хештеги, 
     )
     search_fields = (
         'sku', 'title', 'author', 'author_oblozh', 'genre',
@@ -369,18 +372,33 @@ class ManualBookAdmin(BaseBookAdmin):
         return super().add_view(request, form_url, extra_context)
 
     def search_eksmo_view(self, request):
+        """
+        AJAX-эндпоинт для поиска книг по всем каталогам (админка + Эксмо).
+
+        Вызывается из JavaScript при вводе запроса в поле поиска
+        на странице добавления книги в «Каталог — админка».
+        Возвращает JSON со списком найденных книг (id, title, author, isbn).
+        Поиск осуществляется по артикулу, названию и ISBN.
+        """
         query = (request.GET.get('q') or '').strip()
         books = (
-            _search_eksmo_books(query)
+            _search_all_books(query)
             .order_by('title')
             .values('id', 'title', 'author', 'isbn')[:EKSMO_SEARCH_LIMIT]
         )
         return JsonResponse({'results': list(books)})
 
     def eksmo_template_view(self, request, book_id):
-        book = Book.objects.filter(pk=book_id, source=Book.SOURCE_EKSMO).first()
+        """
+        AJAX-эндпоинт для получения данных книги по её ID.
+
+        Вызывается, когда пользователь выбирает книгу из результатов поиска.
+        Возвращает JSON со всеми полями книги для заполнения формы добавления.
+        Работает с книгами из любого источника (админка или Эксмо).
+        """
+        book = Book.objects.filter(pk=book_id).first()
         if not book:
-            return JsonResponse({'error': 'Книга не найдена в каталоге Эксмо'}, status=404)
+            return JsonResponse({'error': 'Книга не найдена'}, status=404)
         return JsonResponse({'book': _book_to_form_dict(book, for_manual_template=True)})
 
 
