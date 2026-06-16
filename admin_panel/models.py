@@ -117,6 +117,7 @@ class Book(models.Model):
     author = models.CharField(max_length=100, verbose_name="Автор", default="")
     author_oblozh = models.CharField(max_length=100, verbose_name="Автор на обложке", default="")
     genre = models.CharField(max_length=100, verbose_name="Направление", default="")
+    Target_audience = models.CharField(max_length=100, verbose_name="Целевая аудитория", default="")  # целевая аудитория
     publisher = models.CharField(max_length=100, verbose_name="Издательство", default="")
     series = models.CharField(max_length=200, verbose_name="Серия", blank=True, null=True)
     publication_year = models.PositiveIntegerField(verbose_name="Год издания", blank=True, null=True)
@@ -131,7 +132,7 @@ class Book(models.Model):
     paper_type = models.CharField(
     max_length=20, choices=PAPER_TYPES, verbose_name="Тип бумаги", blank=True, null=True
     )
-    hashtags = models.CharField(max_length=200, verbose_name="Хештеги", blank=True, null=True)  # строка "хештеги"
+    hashtags = models.CharField(max_length=200, verbose_name="Хештеги", blank=True, null=True)  # хештеги"
     pages = models.PositiveIntegerField(verbose_name="Количество страниц", blank=True, null=True)
     photos = models.JSONField(default=list, verbose_name="Фотографии", blank=True)
     description = models.TextField(blank=True, verbose_name="Описание")
