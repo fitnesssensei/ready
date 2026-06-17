@@ -108,6 +108,66 @@ class Book(models.Model):
         ('10', '10%'),
         ('20', '20%'),
     ]
+
+    GENRE = [
+        ('antic', 'Античная литература'),
+        ('artbook', 'Артбук'),
+        ('fable', 'Басни'),
+        ('business', 'Бизнес'),
+        ('biography', 'Биография'),
+        ('boevic', 'Боевик'),
+        ('military', 'Военное дело'),
+        ('graphic_novel', 'Графический роман'),
+        ('detective', 'Детектив'),
+        ('home_garden', 'Дом и сад'),
+        ('early_childhood', 'Дошкольное развитие детей'),
+        ('drama', 'Драматургия'),
+        ('information_technology', 'Информационные технологии'),
+        ('art_culture', 'Искусство и культура'),
+        ('history', 'История'),
+        ('comic', 'Комикс'),
+        ('beauty_health', 'Красота и здоровье'),
+        ('cooking', 'Кулинария'),
+        ('romance', 'Любовный роман'),
+        ('manga', 'Манга'),
+        ('manhwa', 'Манхва'),
+        ('manhua', 'Маньхуа'),
+        ('medicine', 'Медицина'),
+        ('memoirs', 'Мемуары'),
+        ('mystery', 'Мистика'),
+        ('young_adult', 'Молодежная и подростковая литература (Young Adult)'),
+        ('scientific', 'Научная и научно-популярная литература'),
+        ('pedagogy', 'Педагогика и логопедия'),
+        ('politics', 'Политика и политология'),
+        ('university', 'Пособие для вузов, ссузов, аспирантуры'),
+        ('foreign_language', 'Пособие для изучения иностранных языков'),
+        ('exam_prepEGE', 'Пособие для подготовки к ЕГЭ'),
+        ('exam_prepOGE', 'Пособие для подготовки к ОГЭ'),
+        ('exam_prepVPR', 'Пособие для подготовки к итоговому тестированию и ВПР'),
+        ('school', 'Пособие для школы'),
+        ('poetry', 'Поэзия'),
+        ('law', 'Право и юриспруденция'),
+        ('adventure', 'Приключения'),
+        ('prose', 'Проза'),
+        ('psychology', 'Психология'),
+        ('journalism', 'Публицистика'),
+        ('travel', 'Путешествия и туризм'),
+        ('ranobe', 'Ранобэ'),
+        ('religion', 'Религия'),
+        ('self_development', 'Саморазвитие'),
+        ('dictionary', 'Словарь'),
+        ('sports', 'Спорт'),
+        ('thriller', 'Триллер'),
+        ('horror', 'Ужасы'),
+        ('fantastic', 'Фантастика'),
+        ('fantasy', 'Фэнтези'),
+        ('hobby_creativity', 'Хобби и творчество'),
+        ('esoterica_spirituality', 'Эзотерика и духовные практики'),
+        ('economics_finance', 'Экономика и финансы'),
+        ('encyclopedia_reference', 'Энциклопедия, справочник'),
+        ('epic_folklore', 'Эпос и фольклор'),
+
+    ]
     
     TARGET_AUDIENCE = [
         ('for adults', 'Для взрослых'),
@@ -187,7 +247,7 @@ class Book(models.Model):
 
     author = models.CharField(max_length=100, verbose_name="Автор", default="")
     author_oblozh = models.CharField(max_length=100, verbose_name="Автор на обложке", blank=True, null=True)
-    genre = models.CharField(max_length=100, verbose_name="Направление", blank=True, null=True)
+    genre = models.CharField(max_length=100, verbose_name="Направление", default='fantastic', blank=True)
     target_audience = models.CharField(max_length=100, choices=TARGET_AUDIENCE, verbose_name="Целевая аудитория", default='for adults', blank=True)  # целевая аудитория 
     age_restrictions = models.CharField(max_length=100, choices=AGE_RESTRICTIONS, verbose_name="Возрастные ограничения", default='18+', blank=True)  # возраст огран  
     publisher = models.CharField(max_length=100, verbose_name="Издательство", default="")
