@@ -18,7 +18,7 @@
     }
 </style>
 
-<!-- ✅ Подключаем Select2 для поиска в выпадающих списках с choices -->
+<!-- Подключаем Select2 для поиска в выпадающих списках с choices -->
 <link rel="stylesheet" type="text/css" href="{% static 'admin/css/autocomplete.css' %}">
 <script src="{% static 'admin/js/vendor/select2/select2.full.min.js' %}"></script>
 <script>
@@ -31,14 +31,14 @@
         var $ = django.jQuery;
 
         // Поля, в которых нужен поиск (name атрибут)
-        var searchableFields = ['genre', 'cover_type', 'paper_type', 'age_restrictions'];
+        var searchableFields = ['genre', 'cover_type', 'paper_type', 'target_audience', 'age_restrictions', 'language', 'condition', 'book_type']; 
 
         searchableFields.forEach(function(fieldName) {
             var $select = $('#id_' + fieldName);
             if ($select.length && !$select.data('select2')) {
                 $select.select2({
                     width: '20em',
-                    minimumResultsForSearch: 5
+                    minimumResultsForSearch: 1  // поиск на всех полях, даже с 2 опциями
                 });
             }
         });
