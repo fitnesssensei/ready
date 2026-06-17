@@ -364,6 +364,11 @@ class ManualBookAdmin(BaseBookAdmin):
                 name='admin_panel_manualbook_search_eksmo',
             ),
             path(
+                'search-field/',
+                self.admin_site.admin_view(self.search_field_view),
+                name='admin_panel_manualbook_search_field',
+            ),
+            path(
                 'eksmo-template/<int:book_id>/',
                 self.admin_site.admin_view(self.eksmo_template_view),
                 name='admin_panel_manualbook_eksmo_template',
@@ -374,6 +379,7 @@ class ManualBookAdmin(BaseBookAdmin):
     def _eksmo_admin_context(self):
         return {
             'eksmo_search_url': reverse('admin:admin_panel_manualbook_search_eksmo'),
+            'search_field_url': reverse('admin:admin_panel_manualbook_search_field'),
             'eksmo_template_url_tpl': reverse(
                 'admin:admin_panel_manualbook_eksmo_template',
                 args=[0],
@@ -400,6 +406,33 @@ class ManualBookAdmin(BaseBookAdmin):
             .order_by('title')
             .values('id', 'title', 'author', 'isbn')[:EKSMO_SEARCH_LIMIT]
         )
+        return JsonResponse({'results': list(books)})
+
+    def search_field_view(self, request):
+        """
+        AJAX-эндпоинт для автодополнения полей формы (title, author, author_oblozh, publisher, series).
+
+        Ищет уникальные значения указанного поля среди ВСЕХ книг (админка + Эксмо).
+        Возвращает JSON со списком подходящих значений (макс. 20).
+        """
+        field = (request.GET.get('field') or '').strip()
+        query = (request.GET.get('q') or '').strip()
+
+        allowed_fields = {'title', 'author', 'author_oblozh', 'publisher', 'series'}
+        if field not in allowed_fields:
+            return JsonResponse({'results': []})
+
+        if len(query) < 1:
+            return JsonResponse({'results': []})
+
+        books = Book.objects.filter(
+            **{f'{field}__icontains': query}
+        ).exclude(
+            **{f'{field}__isnull': True}
+        ).exclude(
+            **{f'{field}__exact': ''}
+        ).values_list(field, flat=True).distinct()[:20]
+
         return JsonResponse({'results': list(books)})
 
     def eksmo_template_view(self, request, book_id):

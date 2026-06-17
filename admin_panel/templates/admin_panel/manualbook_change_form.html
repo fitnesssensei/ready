@@ -3,6 +3,177 @@
 
 {% block form_top %}
 {% if add and eksmo_search_url %}
+<script>
+(function() {
+    var fieldSearchUrl = "{{ search_field_url|escapejs }}";
+    var autocompleteFields = ['title', 'author', 'author_oblozh', 'publisher', 'series'];
+    var debounceTimers = {};
+    var activeDropdown = null;
+    var allDropdowns = [];
+
+    function closeAllDropdowns() {
+        allDropdowns.forEach(function(d) {
+            d.style.display = 'none';
+            d.innerHTML = '';
+        });
+        activeDropdown = null;
+    }
+
+    function initAutocomplete() {
+        autocompleteFields.forEach(function(fieldName) {
+            var input = document.getElementById('id_' + fieldName);
+            if (!input) return;
+            if (input.dataset.autocompleteInited) return;
+            input.dataset.autocompleteInited = '1';
+
+            // Create dropdown positioned absolutely relative to document
+            var dropdown = document.createElement('div');
+            dropdown.className = 'field-autocomplete-dropdown';
+            dropdown.style.cssText = 'position:fixed;z-index:99999;display:none;' +
+                'max-height:200px;overflow-y:auto;border:1px solid #ccc;' +
+                'background:#fff;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);' +
+                'min-width:200px;';
+            document.body.appendChild(dropdown);
+            allDropdowns.push(dropdown);
+
+            function hideDropdown() {
+                dropdown.style.display = 'none';
+                dropdown.innerHTML = '';
+                if (activeDropdown === dropdown) activeDropdown = null;
+            }
+
+            function positionDropdown() {
+                var rect = input.getBoundingClientRect();
+                dropdown.style.left = rect.left + 'px';
+                dropdown.style.top = (rect.bottom + 2) + 'px';
+                dropdown.style.width = Math.max(rect.width, 200) + 'px';
+            }
+
+            function fetchSuggestions(query) {
+                if (query.length < 1) { hideDropdown(); return; }
+                var url = fieldSearchUrl + '?field=' + encodeURIComponent(fieldName) + '&q=' + encodeURIComponent(query);
+                fetch(url, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var items = data.results || [];
+                    if (document.activeElement !== input) { hideDropdown(); return; }
+                    renderDropdown(items, input, dropdown);
+                })
+                .catch(function() { hideDropdown(); });
+            }
+
+            function renderDropdown(items, inputEl, dropdownEl) {
+                dropdownEl.innerHTML = '';
+                if (!items.length) { dropdownEl.style.display = 'none'; return; }
+                var currentVal = inputEl.value;
+                items.forEach(function(value) {
+                    if (value === currentVal) return;
+                    var item = document.createElement('div');
+                    item.style.cssText = 'padding:8px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid #eee;';
+                    item.textContent = value;
+                    item.addEventListener('mouseenter', function() { item.style.background = '#e8f4ff'; });
+                    item.addEventListener('mouseleave', function() { item.style.background = ''; });
+                    item.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        inputEl.value = value;
+                        hideDropdown();
+                        var evt = new Event('change', { bubbles: true });
+                        inputEl.dispatchEvent(evt);
+                    });
+                    dropdownEl.appendChild(item);
+                });
+                if (!dropdownEl.children.length) { dropdownEl.style.display = 'none'; return; }
+                positionDropdown();
+                dropdownEl.style.display = 'block';
+                activeDropdown = dropdownEl;
+            }
+
+            input.addEventListener('input', function() {
+                if (debounceTimers[fieldName]) clearTimeout(debounceTimers[fieldName]);
+                debounceTimers[fieldName] = setTimeout(function() {
+                    fetchSuggestions(input.value.trim());
+                }, 300);
+            });
+
+            input.addEventListener('focus', function() {
+                if (input.value.trim().length >= 1) fetchSuggestions(input.value.trim());
+            });
+
+            input.addEventListener('blur', function() {
+                setTimeout(function() {
+                    if (activeDropdown === dropdown) hideDropdown();
+                }, 250);
+            });
+
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') { hideDropdown(); }
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    var items = dropdown.querySelectorAll('div');
+                    if (!items.length) return;
+                    e.preventDefault();
+                    var idx = -1;
+                    for (var i = 0; i < items.length; i++) {
+                        if (items[i].style.background) { idx = i; break; }
+                    }
+                    if (e.key === 'ArrowDown') { idx = (idx + 1) % items.length; }
+                    else { idx = (idx - 1 + items.length) % items.length; }
+                    items.forEach(function(el) { el.style.background = ''; });
+                    items[idx].style.background = '#e8f4ff';
+                    input.value = items[idx].textContent;
+                }
+                if (e.key === 'Enter' && activeDropdown) {
+                    var sel = dropdown.querySelector('div[style*="background:"]');
+                    if (sel) {
+                        e.preventDefault();
+                        input.value = sel.textContent;
+                        hideDropdown();
+                        var evt = new Event('change', { bubbles: true });
+                        input.dispatchEvent(evt);
+                    }
+                }
+            });
+        });
+    }
+
+    // Handle scroll and resize events to reposition dropdowns
+    function repositionActiveDropdown() {
+        if (!activeDropdown) return;
+        // Find the input for this dropdown
+        var fieldEl = document.querySelector('.field-autocomplete-dropdown[style*="block"]');
+        if (!fieldEl) return;
+        // Reposition by finding input
+        autocompleteFields.forEach(function(fieldName) {
+            var input = document.getElementById('id_' + fieldName);
+            if (!input) return;
+            var rect = input.getBoundingClientRect();
+            var dds = document.querySelectorAll('.field-autocomplete-dropdown');
+            for (var i = 0; i < dds.length; i++) {
+                var dd = dds[i];
+                if (dd.style.display !== 'none' && dd.children.length > 0) {
+                    dd.style.left = rect.left + 'px';
+                    dd.style.top = (rect.bottom + 2) + 'px';
+                    dd.style.width = Math.max(rect.width, 200) + 'px';
+                }
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAutocomplete);
+    } else {
+        initAutocomplete();
+    }
+    window.addEventListener('scroll', repositionActiveDropdown, true);
+    window.addEventListener('resize', repositionActiveDropdown);
+})();
+</script>
+<style>
+.field-autocomplete-dropdown div:last-child { border-bottom: none !important; }
+.field-autocomplete-dropdown div:hover { background: #e8f4ff; }
+</style>
 <div id="eksmo-catalog-search" class="eksmo-search-panel">
     <h2>Поиск по всем каталогам (админка + Эксмо)</h2>
     <p class="eksmo-search-hint">По артикулу, названию или ISBN. Выберите книгу — поля формы заполнятся; при сохранении создаётся <strong>новая</strong> запись в магазине.</p>
