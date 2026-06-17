@@ -283,6 +283,7 @@ class Book(models.Model):
     vat_rate = models.CharField(max_length=2, choices=VAT_RATES, verbose_name="Ставка НДС", default='0')
     stock = models.PositiveIntegerField(verbose_name="Остаток на складе", default=1)
     isbn = models.CharField(max_length=20, verbose_name="ISBN", blank=True, null=True, )
+    tnved_code = models.CharField(max_length=10, verbose_name="ТН ВЭД коды ЕАЭС", default='4901100000', blank=True, null=True)
     weight = models.DecimalField(
         max_digits=8, decimal_places=4, verbose_name="Вес с упаковкой (г)", blank=True, null=True
     )
