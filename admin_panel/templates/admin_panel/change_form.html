@@ -1,4 +1,5 @@
 {% extends "admin/change_form.html" %}
+{% load static %}
 
 {% block extrahead %}
 {{ block.super }}
@@ -16,6 +17,41 @@
         font-weight: bold !important;
     }
 </style>
+
+<!-- ✅ Подключаем Select2 для поиска в выпадающих списках с choices -->
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/autocomplete.css' %}">
+<script src="{% static 'admin/js/vendor/select2/select2.full.min.js' %}"></script>
+<script>
+(function() {
+    function initSelect2Search() {
+        if (typeof django === 'undefined' || typeof django.jQuery === 'undefined') {
+            setTimeout(initSelect2Search, 100);
+            return;
+        }
+        var $ = django.jQuery;
+
+        // Поля, в которых нужен поиск (name атрибут)
+        var searchableFields = ['genre', 'cover_type', 'paper_type', 'age_restrictions'];
+
+        searchableFields.forEach(function(fieldName) {
+            var $select = $('#id_' + fieldName);
+            if ($select.length && !$select.data('select2')) {
+                $select.select2({
+                    width: '20em',
+                    minimumResultsForSearch: 5
+                });
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSelect2Search);
+    } else {
+        initSelect2Search();
+    }
+})();
+</script>
+
 <script>
 (function() {
     function interceptFormSubmit() {

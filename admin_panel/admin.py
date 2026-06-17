@@ -177,6 +177,9 @@ class BaseBookAdmin(admin.ModelAdmin):
 
     # Действия, доступные для выбранных книг
     actions = ['export_selected_to_excel', 'export_selected_to_ozon']
+    
+    # добавил - автокомплит для категории
+    autocomplete_fields = ['category']  # добавил - автокомплит для категории
 
     list_display = (
         'sku', 'title', 'category', 'author', 'author_oblozh', 'genre', 'target_audience', 'age_restrictions', # добавил - целевая аудит, возростные ограничения
