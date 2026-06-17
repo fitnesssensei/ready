@@ -159,9 +159,9 @@ def export_books_to_ozon_template(request):
             'sku': lambda book: book.sku or '',
             'штрихкод (серийный номер / ean)': lambda book: book.isbn or '',
             'вес в упаковке, г*': lambda book: int(float(book.weight)) if book.weight else '',
-            'ширина упаковки, мм*': lambda book: int(float(book.width) / 10) if book.width else '',
-            'высота упаковки, мм*': lambda book: int(float(book.height) / 10) if book.height else '',
-            'длина упаковки, мм*': lambda book: int(float(book.length) / 10) if book.length else '',
+            'ширина упаковки, мм*': lambda book: int(float(book.width)) if book.width else '',  # убрал  / 10 
+            'высота упаковки, мм*': lambda book: int(float(book.height)) if book.height else '',  # убрал  / 10
+            'длина упаковки, мм*': lambda book: int(float(book.length)) if book.length else '',  # убрал  / 10
             'ссылка на главное фото*': lambda book: (
                 f'{media_base_url}{book.photos[0]}' if book.photos else ''
             ),
