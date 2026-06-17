@@ -178,7 +178,7 @@ def export_books_to_ozon_template(request):
             'тип книги': lambda book: _ozon_book_type_display(book),
             'тип*': lambda book: _ozon_book_type(book),
             'бренд*': lambda book: book.publisher or 'Нет бренда',
-            'тн вэд коды еаэс*': lambda book: '4901990000',
+            'тн вэд коды еаэс*': lambda book: book.tnved_code or '',
             'направление*': lambda book: book.get_genre_display() or '',
             'целевая аудитория литературы': lambda book: book.get_target_audience_display() or '',
             '#хештеги': lambda book: book.hashtags or '',
