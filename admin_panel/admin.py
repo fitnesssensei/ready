@@ -103,6 +103,7 @@ def _book_to_form_dict(book: Book, *, for_manual_template: bool = False) -> dict
         'language': book.language,
         'condition': book.condition or '',
         'cover_type': book.cover_type,
+        'book_type': book.book_type or 'printed book',  # строка "тип книги"
         'paper_type': book.paper_type or '',  # строка "тип бумаги"
         'hashtags': book.hashtags or '',  # строка "хештеги"
         'pages': book.pages or '',
@@ -420,7 +421,7 @@ class EksmoBookAdmin(BaseBookAdmin):
             'fields': (
                 'sku', 'title', 'category', 'author', 'author_oblozh', 'genre', 'target_audience',  # целев аудитор
                 'age_restrictions', 'publisher', 'series', 'publication_year', 'language', 'condition',  # возраст огран
-                'cover_type','paper_type', 'hashtags', 'pages', 'description',  # добавил - тип бумаги, хештеги
+                'cover_type', 'book_type', 'paper_type', 'hashtags', 'pages', 'description',  # добавил - тип бумаги, хештеги, тип книги
             )
         }),
         ('Коммерческая информация', {
