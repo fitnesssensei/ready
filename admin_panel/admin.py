@@ -464,7 +464,7 @@ class EksmoBookAdmin(BaseBookAdmin):
             'fields': ('price', 'old_price', 'vat_rate', 'stock', 'isbn')
         }),
         ('Логистика', {
-            'fields': ('weight', 'length', 'width', 'height')
+            'fields': ('tnved_code', 'weight', 'length', 'width', 'height')
         }),
         ('Служебное', {
             'fields': ('source', 'publication_date', 'created_at', 'updated_at'),
