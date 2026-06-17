@@ -146,6 +146,7 @@ class Book(models.Model):
         ('printed book', 'Печатная книга'),
         ('second', 'Second-hand книга'),
         ('bookinist', 'Букинистика'),
+        ('print_on_demand', 'Печать по требованию'),
     ]
 
 
@@ -199,7 +200,7 @@ class Book(models.Model):
     cover_type = models.CharField(
         max_length=20, choices=COVER_TYPES, verbose_name="Тип переплёта", default='hard'
     )
-
+    # строка "тип книги
     book_type = models.CharField(
         max_length=20, choices=BOOK_TYPE, verbose_name="Тип книги", default='printed book', blank=True)  # тип книги 
 
