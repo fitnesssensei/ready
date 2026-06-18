@@ -12,42 +12,6 @@ from .models import Book, OzonTemplate
 logger = logging.getLogger(__name__)
 
 
-# Маппинг жанров книг на колонки направлений Ozon (колонки 47-72)
-GENRE_COLUMN_MAPPING = {
-    'business': 47,
-    'self_development': 48,
-    'psychology': 48,
-    'scientific': 49,
-    'medicine': 50,
-    'law': 51,
-    'art_culture': 52,
-    'artbook': 52,
-    'history': 53,
-    'journalism': 54,
-    'esoterica_spirituality': 55,
-    'cooking': 56,
-    'hobby_creativity': 57,
-    'home_garden': 58,
-    'beauty_health': 59,
-    'sports': 59,
-    'religion': 60,
-    'information_technology': 61,
-    'encyclopedia_reference': 63,
-    'travel': 64,
-    'prose': 65,
-    'detective': 66,
-    'fantasy': 67,
-    'fantastic': 68,
-    'romance': 69,
-    'epic_folklore': 70,
-    'poetry': 71,
-    'comic': 72,
-    'graphic_novel': 72,
-    'manga': 72,
-    'manhwa': 72,
-    'manhua': 72,
-    'ranobe': 72,
-}
 
 
 BOOK_TYPE_OZON_MAPPING = {
@@ -156,8 +120,9 @@ def export_books_to_ozon_template(request):
             'цена, руб.*': lambda book: float(book.price) if book.price else '',
             'цена до скидки, руб.': lambda book: float(book.old_price) if book.old_price else '',
             'ндс, %*': lambda book: int(book.vat_rate) if book.vat_rate else 0,
-            'sku': lambda book: book.sku or '',
+            #'sku': lambda book: book.sku or '',
             'штрихкод (серийный номер / ean)': lambda book: '',  # book.isbn or '',
+            'isbn': lambda book: book.isbn or '',
             'вес в упаковке, г*': lambda book: int(float(book.weight)) if book.weight else '',
             'ширина упаковки, мм*': lambda book: int(float(book.width)) if book.width else '',  # убрал  / 10 
             'высота упаковки, мм*': lambda book: int(float(book.height)) if book.height else '',  # убрал  / 10
@@ -174,9 +139,10 @@ def export_books_to_ozon_template(request):
                 book.author_oblozh if book.author_oblozh else (book.author or '')
             ),
             'автор': lambda book: book.author or '',
-            'тип обложки': lambda book: book.get_cover_type_display() or '',
-            'тип книги': lambda book: _ozon_book_type_display(book),
-            'тип*': lambda book: _ozon_book_type(book),
+            'тип обложки': lambda book: book.get_cover_type_display() or '',            
+            #'тип книги': lambda book: _ozon_book_type_display(book),
+            'тип книги': lambda book: _ozon_book_type(book),
+            'тип*': lambda book: 'Печатная книга',
             'бренд*': lambda book: book.publisher or 'Нет бренда',
             'тн вэд коды еаэс*': lambda book: book.tnved_code or '',
             'направление*': lambda book: book.get_genre_display() or '',
@@ -192,12 +158,10 @@ def export_books_to_ozon_template(request):
             #'размер упаковки (длина х ширина х высота), см': lambda book: _format_dimensions_cm(book),
             #'размеры, мм': lambda book: _format_dimensions_mm(book),
             'вес товара, г': lambda book: int(float(book.weight)) if book.weight else '',
-            #'isbn': lambda book: book.isbn or '',
             'сохранность книги': lambda book: book.get_condition_display() or '',
             'возрастные ограничения': lambda book: book.get_age_restrictions_display() or '',
             'признак 18+': lambda book: 'да' if book.age_restrictions == '18+' else '',
         }
-        GENRE_TO_DISPLAY = {code: display for code, display in Book.GENRE}
         current_row = 5
         for idx, book in enumerate(books, 1):
             ws.cell(row=current_row, column=1).value = idx
@@ -212,14 +176,6 @@ def export_books_to_ozon_template(request):
                             f"для книги {book.id} ({book.sku}): {e}"
                         )
                         ws.cell(row=current_row, column=col_num).value = ''
-            if book.genre and book.genre in GENRE_COLUMN_MAPPING:
-                col_num = GENRE_COLUMN_MAPPING[book.genre]
-                display_name = GENRE_TO_DISPLAY.get(book.genre, '')
-                if display_name:
-                    ws.cell(row=current_row, column=col_num).value = display_name
-            ws.cell(row=current_row, column=24).value = book.isbn or ''
-            ws.cell(row=current_row, column=22).value = 'Печатная книга'
-            ws.cell(row=current_row, column=21).value = book.get_book_type_display()
             current_row += 1
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
