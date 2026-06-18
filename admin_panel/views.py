@@ -157,7 +157,7 @@ def export_books_to_ozon_template(request):
             'цена до скидки, руб.': lambda book: float(book.old_price) if book.old_price else '',
             'ндс, %*': lambda book: int(book.vat_rate) if book.vat_rate else 0,
             'sku': lambda book: book.sku or '',
-            'штрихкод (серийный номер / ean)': lambda book: book.isbn or '',
+            'штрихкод (серийный номер / ean)': lambda book: '',  # book.isbn or '',
             'вес в упаковке, г*': lambda book: int(float(book.weight)) if book.weight else '',
             'ширина упаковки, мм*': lambda book: int(float(book.width)) if book.width else '',  # убрал  / 10 
             'высота упаковки, мм*': lambda book: int(float(book.height)) if book.height else '',  # убрал  / 10

@@ -51,28 +51,28 @@ git push origin main
 cd /home/semen/ready
 git pull origin main
 
-# Активировать venv и применить миграции (если есть изменения в БД)
+## Активировать venv и применить миграции (если есть изменения в БД)
 
 source venv/bin/activate
 python manage.py migrate --noinput
 
-# Собрать статику (если были изменения)
+## Собрать статику (если были изменения)
 
 python manage.py collectstatic --noinput
 
-# Перезапустить Gunicorn
+## Перезапустить Gunicorn
 
 sudo systemctl restart gunicorn
 
 ## Всё одной строкой (с локальной машины)
 
-# Пуш на GitHub
+## Пуш на GitHub
 
 git add .
 git commit -m "update"
 git push origin main
 
-# Деплой на сервер
+## Деплой на сервер
 
 ssh semen@v3144166.hosted-by-vdsina.ru
 
@@ -84,13 +84,13 @@ python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 sudo systemctl restart gunicorn
 
-# миграции
+## миграции
 
 source venv/bin/activate
 python manage.py migrate
 И перезапусти сервис:
 sudo systemctl restart gunicorn
 
-# посмотреть на сервере сколько книг имеют размеры 
+## посмотреть на сервере сколько книг имеют размеры 
 
 sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book WHERE height IS NOT NULL AND length IS NOT NULL AND width IS NOT NULL;"
