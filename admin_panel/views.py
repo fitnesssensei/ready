@@ -192,7 +192,7 @@ def export_books_to_ozon_template(request):
             #'размер упаковки (длина х ширина х высота), см': lambda book: _format_dimensions_cm(book),
             #'размеры, мм': lambda book: _format_dimensions_mm(book),
             'вес товара, г': lambda book: int(float(book.weight)) if book.weight else '',
-            'isbn': lambda book: book.isbn or '',
+            #'isbn': lambda book: book.isbn or '',
             'сохранность книги': lambda book: book.get_condition_display() or '',
             'возрастные ограничения': lambda book: book.get_age_restrictions_display() or '',
             'признак 18+': lambda book: 'да' if book.age_restrictions == '18+' else '',
@@ -217,6 +217,7 @@ def export_books_to_ozon_template(request):
                 display_name = GENRE_TO_DISPLAY.get(book.genre, '')
                 if display_name:
                     ws.cell(row=current_row, column=col_num).value = display_name
+            ws.cell(row=current_row, column=24).value = book.isbn or ''
             current_row += 1
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
