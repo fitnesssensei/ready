@@ -114,6 +114,9 @@ def export_books_to_ozon_template(request):
             if cell_value:
                 header_clean = str(cell_value).replace('\n', ' ').strip().lower()
                 headers[header_clean] = col_num
+        logger.info(f'Ozon template headers: {list(headers.keys())}')
+        isbn_cols = {k: v for k, v in headers.items() if 'isbn' in k.lower()}
+        logger.info(f'ISBN columns found: {isbn_cols}')
         field_mapping = {
             'артикул*': lambda book: book.sku or '',
             'название товара': lambda book: book.title or '',
@@ -123,7 +126,7 @@ def export_books_to_ozon_template(request):
             #'sku': lambda book: book.sku or '',
             'штрихкод (серийный номер / ean)': lambda book: '',  # book.isbn or '',
             'isbn': lambda book: book.isbn or '',
-            'ISBN*': lambda book: book.isbn or '',
+            'isbn*': lambda book: book.isbn or '',
             'вес в упаковке, г*': lambda book: int(float(book.weight)) if book.weight else '',
             'ширина упаковки, мм*': lambda book: int(float(book.width)) if book.width else '',  # убрал  / 10 
             'высота упаковки, мм*': lambda book: int(float(book.height)) if book.height else '',  # убрал  / 10
@@ -167,9 +170,10 @@ def export_books_to_ozon_template(request):
         for idx, book in enumerate(books, 1):
             ws.cell(row=current_row, column=1).value = idx
             for header_name, col_num in headers.items():
-                if header_name in field_mapping:
+                mapper = field_mapping.get(header_name) or field_mapping.get(header_name.rstrip('*'))
+                if mapper:
                     try:
-                        value = field_mapping[header_name](book)
+                        value = mapper(book)
                         ws.cell(row=current_row, column=col_num).value = value
                     except Exception as e:
                         logger.warning(
