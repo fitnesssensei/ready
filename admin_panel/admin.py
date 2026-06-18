@@ -182,7 +182,7 @@ class BaseBookAdmin(admin.ModelAdmin):
     autocomplete_fields = ['category']  # добавил - автокомплит для категории
 
     list_display = (
-        'sku', 'title', 'category', 'author', 'author_oblozh', 'genre', 'target_audience', 'age_restrictions', # добавил - целевая аудит, возростные ограничения
+        'sku', 'title', 'category', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre', 'target_audience', 'age_restrictions', # добавил - целевая аудит, возростные ограничения
         'publisher', 'series', 'language', 'condition', 'cover_type','book_type', 'paper_type', 'hashtags', 'pages', # добавил - тип бумаги, хештеги
         'price', 'old_price', 'stock', 'publication_year',
         'display_dimensions', 'created_at',
@@ -192,7 +192,7 @@ class BaseBookAdmin(admin.ModelAdmin):
         'cover_type','book_type', 'paper_type', 'hashtags', 'vat_rate', 'publication_year', 'publication_date', 'created_at',  # добавил - тип бумаги, хештеги, 
     )
     search_fields = (
-        'sku', 'title', 'author', 'author_oblozh', 'genre',
+        'sku', 'title', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre',
         'publisher', 'series', 'language', 'isbn', 'hashtags',  # добавил хештеги
     )
     ordering = ('-created_at',)
@@ -201,7 +201,7 @@ class BaseBookAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Основная информация', {
             'fields': (
-                'sku', 'title', 'category', 'author', 'author_oblozh', 'genre', 'target_audience',  # целев аудитория
+                'sku', 'title', 'category', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre', 'target_audience',  # целев аудитория
                 'age_restrictions', 'publisher', 'series', 'publication_year', 'language', 'condition',  # возраст огран
                 'cover_type', 'book_type', 'paper_type', 'hashtags', 'pages', 'photos', 'description',  # добавил - тип бумаги, хештеги
             )
@@ -423,7 +423,7 @@ class ManualBookAdmin(BaseBookAdmin):
         field = (request.GET.get('field') or '').strip()
         query = (request.GET.get('q') or '').strip()
 
-        allowed_fields = {'title', 'author', 'author_oblozh', 'publisher', 'series'}
+        allowed_fields = {'title', 'author', 'author_oblozh', 'publisher', 'series', 'illustrator', 'translator'}
         if field not in allowed_fields:
             return JsonResponse({'results': []})
 
@@ -460,7 +460,7 @@ class EksmoBookAdmin(BaseBookAdmin):
     fieldsets = (
         ('Основная информация', {
             'fields': (
-                'sku', 'title', 'category', 'author', 'author_oblozh', 'genre', 'target_audience',  # целев аудитор
+                'sku', 'title', 'category', 'author', 'author_oblozh','illustrator', 'genre', 'target_audience',  # целев аудитор
                 'age_restrictions', 'publisher', 'series', 'publication_year', 'language', 'condition',  # возраст огран
                 'cover_type', 'book_type', 'paper_type', 'hashtags', 'pages', 'description',  # добавил - тип бумаги, хештеги, тип книги
             )
