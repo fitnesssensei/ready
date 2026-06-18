@@ -218,6 +218,8 @@ def export_books_to_ozon_template(request):
                 if display_name:
                     ws.cell(row=current_row, column=col_num).value = display_name
             ws.cell(row=current_row, column=24).value = book.isbn or ''
+            ws.cell(row=current_row, column=22).value = 'Печатная книга'
+            ws.cell(row=current_row, column=21).value = book.get_book_type_display()
             current_row += 1
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
