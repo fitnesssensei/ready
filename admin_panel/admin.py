@@ -259,9 +259,14 @@ class BaseBookAdmin(admin.ModelAdmin):
         if obj.publication_year:
             if obj.publication_year <= 2010:
                 cat_name = 'Букинистическое издание'
+                cat_ozon_id = 'auto_bukinist'
             else:
                 cat_name = 'Современные печатные издания'
-            category, _ = Category.objects.get_or_create(name=cat_name)
+                cat_ozon_id = 'auto_modern'
+            category, _ = Category.objects.get_or_create(
+                name=cat_name,
+                defaults={'ozon_category_id': cat_ozon_id}
+            )
             obj.category = category
 
         self._set_source(obj)

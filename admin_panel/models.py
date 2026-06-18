@@ -56,7 +56,7 @@ class OzonTemplate(models.Model):
 
 class Category(models.Model):
     name = models.CharField(max_length=200, verbose_name="Название категории")
-    ozon_category_id = models.CharField(max_length=50, verbose_name="ID категории Озон", unique=True)
+    ozon_category_id = models.CharField(max_length=50, verbose_name="ID категории Озон", unique=True, blank=True)
     description = models.TextField(blank=True, verbose_name="Описание")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
 
