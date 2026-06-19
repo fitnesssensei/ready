@@ -164,7 +164,7 @@ def export_books_to_ozon_template(request):
             'вес товара, г': lambda book: int(float(book.weight)) if book.weight else '',
             'сохранность книги': lambda book: book.get_condition_display() or '',
             'возрастные ограничения': lambda book: book.get_age_restrictions_display() or '',
-            'признак 18+': lambda book: 'да' if book.is_adult else '',
+            'признак 18+': lambda book:book.is_adult
         }
         current_row = 5
         for idx, book in enumerate(books, 1):
