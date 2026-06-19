@@ -460,7 +460,7 @@ class EksmoBookAdmin(BaseBookAdmin):
     fieldsets = (
         ('Основная информация', {
             'fields': (
-                'sku', 'title', 'category', 'author', 'author_oblozh','illustrator', 'genre', 'target_audience',  # целев аудитор
+                'sku', 'title', 'category', 'author', 'author_oblozh','illustrator', 'translator', 'genre', 'target_audience',  # целев аудитор
                 'age_restrictions', 'publisher', 'series', 'publication_year', 'language', 'condition',  # возраст огран
                 'cover_type', 'book_type', 'paper_type', 'hashtags', 'pages', 'description',  # добавил - тип бумаги, хештеги, тип книги
             )
