@@ -183,12 +183,12 @@ class BaseBookAdmin(admin.ModelAdmin):
 
     list_display = (
         'sku', 'title', 'category', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre', 'target_audience', 'age_restrictions', # добавил - целевая аудит, возростные ограничения
-        'publisher', 'series', 'language', 'condition', 'cover_type','book_type', 'paper_type', 'hashtags', 'pages', # добавил - тип бумаги, хештеги
+        'is_adult', 'publisher', 'series', 'language', 'condition', 'cover_type','book_type', 'paper_type', 'hashtags', 'pages', # добавил - тип бумаги, хештеги
         'price', 'old_price', 'stock', 'publication_year',
         'display_dimensions', 'created_at',
     )
     list_filter = (
-        'category', 'genre', 'target_audience', 'age_restrictions', 'publisher', 'language', 'condition',
+        'category', 'genre', 'target_audience', 'age_restrictions', 'is_adult', 'publisher', 'language', 'condition',
         'cover_type','book_type', 'paper_type', 'hashtags', 'vat_rate', 'publication_year', 'publication_date', 'created_at',  # добавил - тип бумаги, хештеги, 
     )
     search_fields = (
@@ -202,7 +202,7 @@ class BaseBookAdmin(admin.ModelAdmin):
         ('Основная информация', {
             'fields': (
                 'sku', 'title', 'category', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre', 'target_audience',  # целев аудитория
-                'age_restrictions', 'publisher', 'series', 'publication_year', 'language', 'condition',  # возраст огран
+                'age_restrictions', 'is_adult', 'publisher', 'series', 'publication_year', 'language', 'condition',  # возраст огран
                 'cover_type', 'book_type', 'paper_type', 'hashtags', 'pages', 'photos', 'description',  # добавил - тип бумаги, хештеги
             )
         }),

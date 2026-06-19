@@ -185,6 +185,11 @@ class Book(models.Model):
         
     ]
 
+    IS_ADULT = [
+        ('yes', 'Да'),
+        ('no', 'Нет')
+    ]
+
     LANGUAGE_CHOICES = [
         ('russian', 'Русский'),
         ('english', 'Английский'),
@@ -252,6 +257,7 @@ class Book(models.Model):
     genre = models.CharField(max_length=100, choices=GENRE, verbose_name="Направление", default='fantastic', blank=True)
     target_audience = models.CharField(max_length=100, choices=TARGET_AUDIENCE, verbose_name="Целевая аудитория", default='for adults', blank=True)  # целевая аудитория 
     age_restrictions = models.CharField(max_length=100, choices=AGE_RESTRICTIONS, verbose_name="Возрастные ограничения", default='18+', blank=True)  # возраст огран  
+    is_adult = models.BooleanField(choices=IS_ADULT, verbose_name="Признак 18+", default="no")
     publisher = models.CharField(max_length=100, verbose_name="Издательство", default="")
     series = models.CharField(max_length=200, verbose_name="Серия", blank=True, null=True)
     publication_year = models.PositiveIntegerField(verbose_name="Год издания", blank=True, null=True)
