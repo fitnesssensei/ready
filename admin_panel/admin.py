@@ -176,7 +176,7 @@ class BaseBookAdmin(admin.ModelAdmin):
     change_form_template = 'admin_panel/change_form.html'
 
     # Действия, доступные для выбранных книг
-    actions = ['export_selected_to_excel', 'export_selected_to_ozon']
+    actions = ['export_selected_to_ozon']  # 'export_selected_to_excel',  удалил экспорт в ЭКСЕЛЬ
     
     # добавил - автокомплит для категории
     autocomplete_fields = ['category']  # добавил - автокомплит для категории
@@ -275,7 +275,7 @@ class BaseBookAdmin(admin.ModelAdmin):
     def _set_source(self, obj):
         raise NotImplementedError
 
-    def export_selected_to_excel(self, request, queryset):
+    #def export_selected_to_excel(self, request, queryset):
         """
         Action для экспорта выбранных книг в Excel.
 
@@ -284,11 +284,11 @@ class BaseBookAdmin(admin.ModelAdmin):
         - Форматированные заголовки
         - Автоматическая ширина колонок
         """
-        from .views import export_books_to_excel
-        request.excel_export_queryset = queryset
-        return export_books_to_excel(request)
+        #from .views import export_books_to_excel
+        #request.excel_export_queryset = queryset
+        #return export_books_to_excel(request)
 
-    export_selected_to_excel.short_description = "Экспортировать выбранные в Excel"
+    #export_selected_to_excel.short_description = "Экспортировать выбранные в Excel"
 
     def export_selected_to_ozon(self, request, queryset):
         """
