@@ -1,13 +1,12 @@
 """
-Конвертирует существующие размеры книг из см → мм.
+⚠️ КОМАНДА ОТКЛЮЧЕНА — данные в БД уже хранятся в мм.
 
-До этой команды размеры (width/length/height) сохранялись в сантиметрах,
-но поля модели всегда подразумевали миллиметры.
-Команда умножает существующие значения на 10.
+Ранее предполагалось, что размеры (width/length/height) сохранены в сантиметрах,
+и команда умножает их на 10 для конвертации в мм.
+Однако импорт и парсинг всегда сохраняли значения в мм.
 
-Запуск:
-    python manage.py convert_dims_to_mm
-    python manage.py convert_dims_to_mm --dry-run
+Запуск этой команды ИСПОРТИТ данные — увеличит размеры в 10 раз.
+Если случайно запустили — создайте команду для деления на 10.
 """
 
 from decimal import Decimal
@@ -21,61 +20,21 @@ BATCH_SIZE = 500
 
 
 class Command(BaseCommand):
-    help = 'Конвертирует размеры книг из см → мм (умножает width/length/height на 10)'
+    help = '⚠️ ОТКЛЮЧЕНО: размеры в БД уже в мм, умножать на 10 НЕЛЬЗЯ'
 
-    def add_arguments(self, parser):
-        parser.add_argument(
-            '--dry-run',
-            action='store_true',
-            help='Только показать, что будет обновлено, без записи в БД',
-        )
+    # def add_arguments(self, parser):
+    #     parser.add_argument(
+    #         '--dry-run',
+    #         action='store_true',
+    #         help='Только показать, что будет обновлено, без записи в БД',
+    #     )
 
     def handle(self, *args, **options):
-        dry_run = options['dry_run']
-
-        qs = Book.objects.filter(
-            Q(width__isnull=False) | Q(length__isnull=False) | Q(height__isnull=False)
-        )
-
-        total = qs.count()
-        if total == 0:
-            self.stdout.write(self.style.WARNING('Нет книг с размерами для конвертации.'))
-            return
-
-        self.stdout.write(f'Найдено книг с размерами: {total}')
-
-        if dry_run:
-            self.stdout.write(
-                self.style.WARNING(f'Dry-run: будет обновлено {total} книг(и)')
-            )
-            return
-
-        # Конвертируем и обновляем батчами
-        to_update: list[Book] = []
-        updated_total = 0
-
-        for book in qs.iterator():
-            for field in ('width', 'length', 'height'):
-                val = getattr(book, field, None)
-                if val is not None:
-                    setattr(book, field, val * Decimal('10'))
-            to_update.append(book)
-
-            if len(to_update) >= BATCH_SIZE:
-                Book.objects.bulk_update(to_update, ['width', 'length', 'height'],
-                                         batch_size=BATCH_SIZE)
-                updated_total += len(to_update)
-                self.stdout.write(f'  Обновлено {updated_total} / {total}')
-                to_update = []
-
-        if to_update:
-            Book.objects.bulk_update(to_update, ['width', 'length', 'height'],
-                                     batch_size=BATCH_SIZE)
-            updated_total += len(to_update)
-
-        self.stdout.write(
-            self.style.SUCCESS(f'Готово: обновлено {updated_total} книг(и)')
-        )
-
-
-
+        self.stdout.write(self.style.ERROR(
+            'ОТМЕНЕНО: размеры в БД уже хранятся в мм. '
+            'Запуск этой команды испортит данные!'
+        ))
+        self.stdout.write(self.style.WARNING(
+            'См. docstring в файле convert_dims_to_mm.py для подробностей.'
+        ))
+        # Ничего не делаем — защита от случайного запуска

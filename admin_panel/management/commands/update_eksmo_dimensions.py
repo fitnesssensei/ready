@@ -3,8 +3,8 @@
 у существующих книг Эксмо, у которых они отсутствуют.
 
 Берёт данные из JSON-файла каталога Эксмо, парсит поля:
-    format="115x180 мм"     → width=11.5, length=18.0 см
-    thickness="18 мм"       → height=1.8 см
+    format="115x180 мм"     → width=115, length=180 (мм)
+    thickness="18 мм"       → height=18 (мм)
 
 Запуск:
     python manage.py update_eksmo_dimensions
