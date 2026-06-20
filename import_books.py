@@ -1,7 +1,7 @@
 """
 Скрипт импорта книг из JSON файла в базу данных.
 
-Импортирует книги из файла JSON/13000_libex.json
+Импортирует книги из файла JSON/xxxx_libex.json
 в таблицу admin_panel_book с источником 'eksmo'.
 
 Использование:
@@ -28,8 +28,28 @@ import json
 import os
 import re
 from decimal import Decimal
-
 import django
+
+CATEGORY_TO_GENRE = {
+    'Боевик, книга о войне': 'boevic',
+    'Детективы, триллеры': 'detective',
+    'Другое': '',
+    'Исторический роман': 'history',
+    'Классики литературы': 'prose',
+    'Литература античная и средних веков': 'antic',
+    'Любовный роман, эротика': 'romance',
+    'Мемуары, биографии': 'memoirs',
+    'Мифы, сказки, фольклор': 'epic_folklore',
+    'Поэзия': 'poetry',
+    'Приключения, путешествия': 'adventure',
+    'Публицистика': 'journalism',
+    'Сатира, юмор': 'satire',
+    'Советские писатели': 'sovetsk',
+    'Современная литература': 'prose',
+    'Ужасы, мистика': 'horror',
+    'Фантастика, фэнтези': 'fantastic',
+    'Художественная': 'hudozhka',
+}
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shop_admin.settings')
 django.setup()
@@ -265,7 +285,9 @@ def import_books():
             isbn=isbn[:20] if isbn else None,
             description=annotation,
             publisher=book_data.get('publisher', '')[:100],
-            genre=book_data.get('category', '')[:100],
+            #genre=book_data.get('category', '')[:100],
+            genre=CATEGORY_TO_GENRE.get(book_data.get('category', '').strip().replace('\xa0', ' '), ''),
+            
             publication_year=parse_year(book_data.get('year')),
             pages=parse_pages(book_data.get('pages')),
             cover_type=parse_cover_type(book_data.get('binding')),

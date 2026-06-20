@@ -304,6 +304,15 @@
             el.checked = !!value;
         } else {
             el.value = value == null ? '' : value;
+            // Если используется Select2 — обновить его визуально
+            try {
+                if (typeof django !== 'undefined' && django.jQuery) {
+                    var $sel = django.jQuery(el);
+                    if ($sel.data('select2')) {
+                        $sel.val(value == null ? '' : value).trigger('change');
+                    }
+                }
+            } catch(e) {}
         }
     }
 
