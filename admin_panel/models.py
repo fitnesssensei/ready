@@ -250,7 +250,7 @@ class Book(models.Model):
         default=get_default_category
     )
 
-    author = models.CharField(max_length=100, verbose_name="Автор", default="")
+    author = models.CharField(max_length=100, verbose_name="Автор", default="", blank=True)
     author_oblozh = models.CharField(max_length=100, verbose_name="Автор на обложке", blank=True, null=True)
     illustrator = models.CharField(max_length=100, verbose_name="Иллюстратор", blank=True, null=True)
     translator = models.CharField(max_length=100, verbose_name="Переводчик", blank=True, null=True)
