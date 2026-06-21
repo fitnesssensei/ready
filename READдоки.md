@@ -22,7 +22,7 @@ python merge_json.py --input JSON --output merged_books.json
 
 ### 🚀 Команды для пуша и деплоя
 
-## Важно: перед git push убедись, что большие файлы (JSON > 100 MB) не попадают в коммит — они уже в .gitignore под путями:
+## Важно: перед git push убедись, что большие файлы (JSON > 100 MB) не попадают в коммит — они уже в .gitignore под путями
 
 vBaze/12825_libex.json
 

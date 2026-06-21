@@ -10,6 +10,8 @@ from django.shortcuts import redirect
 from django.urls import path, reverse
 
 from .models import Book, Category, EksmoBook, ManualBook, OzonTemplate
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin  # ← для кастомной админки пользователей
+from django.contrib.auth.models import User  # ← стандартная модель пользователя
 from .widgets import MultipleImageWidget
 
 logger = logging.getLogger(__name__)
@@ -356,9 +358,32 @@ class ManualBookAdmin(BaseBookAdmin):
         obj.source = Book.SOURCE_MANUAL
 
     def save_model(self, request, obj, form, change):
+        # При создании НОВОЙ книги (не редактировании):
         if not change:
-            obj.pk = None
+            obj.pk = None  # сбрасываем pk, чтобы создать новый объект
+            obj.created_by = request.user  # запоминаем, кто добавил книгу
         super().save_model(request, obj, form, change)
+
+    # --- Кастомные permissions для разделения прав ---
+    def has_add_permission(self, request):
+        opts = self.opts
+        codename = f'{opts.app_label}.add_book_manual'
+        return request.user.has_perm(codename)
+
+    def has_delete_permission(self, request, obj=None):
+        opts = self.opts
+        codename = f'{opts.app_label}.delete_book_manual'
+        return request.user.has_perm(codename)
+
+    def has_change_permission(self, request, obj=None):
+        opts = self.opts
+        codename = f'{opts.app_label}.change_book_manual'
+        return request.user.has_perm(codename)
+
+    def has_view_permission(self, request, obj=None):
+        opts = self.opts
+        codename = f'{opts.app_label}.view_book_manual'
+        return request.user.has_perm(codename)
 
     def get_urls(self):
         urls = super().get_urls()
@@ -483,3 +508,39 @@ class EksmoBookAdmin(BaseBookAdmin):
 
     def _set_source(self, obj):
         obj.source = Book.SOURCE_EKSMO
+
+
+# =============================================================================
+# Кастомная админка для пользователей — добавляем статистику по книгам
+# =============================================================================
+
+class CustomUserAdmin(BaseUserAdmin):
+    """
+    Расширяет стандартную админку пользователей.
+    Добавляет read-only поле с количеством книг,
+    которые пользователь добавил в «Каталог — админка».
+    """
+    readonly_fields = ('manual_books_count',)  # говорим Django, что это read-only поле
+
+    def get_fieldsets(self, request, obj=None):
+        # Берём стандартные поля из BaseUserAdmin
+        fieldsets = super().get_fieldsets(request, obj)
+        if obj:  # только при редактировании существующего пользователя
+            fieldsets = list(fieldsets)
+            # Добавляем секцию «Статистика» в самый низ формы
+            fieldsets.append(
+                ('Статистика', {
+                    'fields': ('manual_books_count',),
+                }),
+            )
+        return fieldsets
+
+    @admin.display(description='Добавлено книг (каталог)')
+    def manual_books_count(self, obj):
+        """Считает количество книг, добавленных пользователем в Каталог — админка."""
+        return Book.objects.filter(created_by=obj, source=Book.SOURCE_MANUAL).count()
+
+
+# Отключаем стандартную регистрацию User и регистрируем нашу кастомную
+admin.site.unregister(User)
+admin.site.register(User, CustomUserAdmin)

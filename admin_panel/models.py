@@ -2,7 +2,7 @@ from email.policy import default
 from random import choice
 from webbrowser import get
 from django.db import models
-
+from django.conf import settings  # ← для ссылки на модель User (AUTH_USER_MODEL)
 
 class OzonTemplate(models.Model):
     """
@@ -318,6 +318,14 @@ class Book(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
 
+    # --- Кто добавил книгу (заполняется автоматически при создании через админку) ---
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,  # ссылка на стандартную модель User
+        on_delete=models.SET_NULL,  # если пользователя удалят — книга остаётся
+        null=True, blank=True,
+        editable=False,  # не показываем в форме добавления/редактирования книги
+        verbose_name="Кем добавлена"
+    )
     class Meta:
         verbose_name = "Книга"
         verbose_name_plural = "Книги"
@@ -341,6 +349,12 @@ class ManualBook(Book):
         proxy = True
         verbose_name = "Книга (админка)"
         verbose_name_plural = "Каталог — админка"
+        permissions = [
+            ("add_book_manual", "Может добавлять книги в Каталог — админка"),
+            ("delete_book_manual", "Может удалять книги из Каталог — админка"),
+            ("change_book_manual", "Может редактировать книги в Каталог — админка"),
+            ("view_book_manual", "Может просматривать книги в Каталог — админка"),
+        ]
 
 
 class EksmoBook(Book):
