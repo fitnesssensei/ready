@@ -94,3 +94,7 @@ sudo systemctl restart gunicorn
 ## посмотреть на сервере сколько книг имеют размеры 
 
 sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book WHERE height IS NOT NULL AND length IS NOT NULL AND width IS NOT NULL;"
+
+## ip servera  
+
+178.20.41.120
