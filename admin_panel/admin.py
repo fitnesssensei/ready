@@ -198,6 +198,7 @@ class BaseBookAdmin(admin.ModelAdmin):
         'publisher', 'series', 'language', 'isbn', 'hashtags',  # добавил хештеги
     )
     ordering = ('-created_at',)
+    show_full_result_count = False 
     readonly_fields = ('source', 'created_at', 'updated_at')
 
     fieldsets = (
