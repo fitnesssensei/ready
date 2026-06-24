@@ -73,6 +73,10 @@ def get_default_category():
     cat = Category.objects.order_by('name').first()
     return cat.id if cat else None
 
+def normalize_isbn(value):
+    """Оставляет от ISBN только цифры (убирает дефисы и прочие символы)."""
+    return ''.join(c for c in (value or '') if c.isdigit())
+
 class Book(models.Model):
     SOURCE_MANUAL = 'manual'
     SOURCE_EKSMO = 'eksmo'
@@ -296,6 +300,12 @@ class Book(models.Model):
     vat_rate = models.CharField(max_length=2, choices=VAT_RATES, verbose_name="Ставка НДС", default='0')
     stock = models.PositiveIntegerField(verbose_name="Остаток на складе", default=1)
     isbn = models.CharField(max_length=20, verbose_name="ISBN", blank=True, null=True, )
+    isbn_digits = models.CharField(   # isbn без дефисов
+            max_length=20,
+            blank=True,
+            db_index=True,
+            verbose_name="ISBN только цифры",
+        )
     tnved_code = models.CharField(
         max_length=200, verbose_name="ТН ВЭД коды ЕАЭС", 
         default='4901100000 - Книги, брошюры, листовки и аналогичные печатные издания в виде отдельных листов, сфальцованные или несфальцованные', 
@@ -325,6 +335,10 @@ class Book(models.Model):
         editable=False,  # не показываем в форме добавления/редактирования книги
         verbose_name="Кем добавлена"
     )
+
+    def save(self, *args, **kwargs):
+        self.isbn_digits = normalize_isbn(self.isbn)
+        super().save(*args, **kwargs)
     class Meta:
         verbose_name = "Книга"
         verbose_name_plural = "Книги"

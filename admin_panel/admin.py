@@ -195,7 +195,7 @@ class BaseBookAdmin(admin.ModelAdmin):
     )
     search_fields = (
         'sku', 'title', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre',
-        'publisher', 'series', 'language', 'isbn', 'hashtags',  # добавил хештеги
+        'publisher', 'series', 'language', 'isbn', 'isbn_digits', 'hashtags',  # добавил хештеги
     )
     ordering = ('-created_at',)
     show_full_result_count = False 
