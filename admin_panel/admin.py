@@ -184,14 +184,14 @@ class BaseBookAdmin(admin.ModelAdmin):
     autocomplete_fields = ['category']  # добавил - автокомплит для категории
 
     list_display = (
-        'sku', 'title', 'category', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre', 'target_audience', 'age_restrictions', # добавил - целевая аудит, возростные ограничения
-        'is_adult', 'publisher', 'series', 'language', 'condition', 'cover_type','book_type', 'paper_type', 'hashtags', 'pages', # добавил - тип бумаги, хештеги
-        'price', 'old_price', 'stock', 'publication_year',
+        'sku', 'title', 'category', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre', 'target_audience',  # добавил - целевая аудит, возростные ограничения
+        'age_restrictions', 'is_adult', 'publisher', 'series', 'language', 'condition', 'cover_type','book_type', 
+        'paper_type', 'hashtags', 'pages', 'price', 'old_price', 'stock', 'publication_year',
         'display_dimensions', 'created_at',
     )
     list_filter = (
-        'category', 'genre', 'target_audience', 'age_restrictions', 'is_adult', 'publisher', 'language', 'condition',
-        'cover_type','book_type', 'paper_type', 'hashtags', 'vat_rate', 'publication_year', 'publication_date', 'created_at',  # добавил - тип бумаги, хештеги, 
+        'category', 'genre', 'publisher', 'language',
+        'book_type', 'publication_year', 
     )
     search_fields = (
         'sku', 'title', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre',
@@ -483,11 +483,12 @@ class ManualBookAdmin(BaseBookAdmin):
 class EksmoBookAdmin(BaseBookAdmin):
     # В «База книг» показываем все книги без фото
     fieldsets = (
-        ('Основная информация', {
+        ('Основная информация', { 
             'fields': (
-                'sku', 'title', 'category', 'author', 'author_oblozh','illustrator', 'translator', 'genre', 'target_audience',  # целев аудитор
-                'age_restrictions', 'publisher', 'series', 'publication_year', 'language', 'condition',  # возраст огран
-                'cover_type', 'book_type', 'paper_type', 'hashtags', 'pages', 'description',  # добавил - тип бумаги, хештеги, тип книги
+                'sku', 'title', 'category', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre', 'target_audience',  # целев аудитор
+                'age_restrictions', 'is_adult', 'publisher', 'series', 'language', 'condition', 'cover_type','book_type',  # возраст огран
+                'paper_type', 'hashtags', 'pages', 'publication_year',  # добавил - тип бумаги, хештеги, тип книги
+                'display_dimensions',
             )
         }),
         ('Коммерческая информация', {
