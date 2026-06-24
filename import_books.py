@@ -30,7 +30,7 @@ import re
 from decimal import Decimal
 import django
 
-CATEGORY_TO_GENRE = { 
+CATEGORY_TO_GENRE = {
     'antic': 'Античная литература',
     'Артбук': 'artbook',        
     'Бизнес': 'business', 
@@ -38,8 +38,8 @@ CATEGORY_TO_GENRE = {
     'Биография': 'biography',
     'Боевик, книга о войне': 'boevic',
     'Военное дело': 'military',
-    'Графический роман': 'graphic_novel'
-    'Дом и сад': 'home_garden',,,,,
+    'Графический роман': 'graphic_novel',
+    'Дом и сад': 'home_garden',
     'Детективы, триллеры': 'detective',
     'Драматургия': 'drama',
     'Дошкольное развитие детей': 'early_childhood',
@@ -56,7 +56,7 @@ CATEGORY_TO_GENRE = {
     'Маньхуа': 'manhua',
     'Медицина': 'medicine',
     'Мемуары': 'memoirs',
-    'Мистика''mystery',
+    'Мистика': 'mystery',
     'Мемуары, биографии': 'memoirs',
     'Мифы, сказки, фольклор': 'epic_folklore',
     'Молодежная и подростковая литература (Young Adult)': 'young_adult',
@@ -87,13 +87,13 @@ CATEGORY_TO_GENRE = {
     'Триллер': 'thriller',
     'Ужасы, мистика': 'horror',
     'Фантастика': 'fantastic',
-    'Фэнтези': 'fantasy'
+    'Фэнтези': 'fantasy',
     'Художественная': 'hudozhka',
-    'Хобби и творчество': 'hobby_creativity'
+    'Хобби и творчество': 'hobby_creativity',
     'Эзотерика и духовные практики': 'esoterica_spirituality',
     'Экономика и финансы': 'economics_finance',
     'Энциклопедия, справочник': 'encyclopedia_reference',
-    'Эпос и фольклор': 'epic_folklore'
+    'Эпос и фольклор': 'epic_folklore',
 }
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shop_admin.settings')
@@ -284,8 +284,14 @@ def import_books():
 
     Вес извлекается из аннотации (паттерны «Масса: N г», «Вес: N г»).
     """
+
+    # Открываем и читаем JSON — из файла или из stdin (через пайп)это
+    #  на сервере
+    #if len(sys.argv) > 1 and sys.argv[1] == '--stdin':
+    #   books_data = json.load(sys.stdin)
+    #else:
     # Открываем и читаем JSON файл с книгами
-    with open('vBaze/39000_libex.json', 'r', encoding='utf-8') as f:
+    with open('JSON/48000_clean.json', 'r', encoding='utf-8') as f:
         books_data = json.load(f)
 
     print(f'Загружено {len(books_data)} книг из JSON')

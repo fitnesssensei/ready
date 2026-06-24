@@ -329,6 +329,26 @@ class Book(models.Model):
         verbose_name = "Книга"
         verbose_name_plural = "Книги"
         ordering = ['-created_at']
+        indexes = [
+        # Композитные индексы (составные)
+        models.Index(fields=['source', 'created_at'], name='book_source_created_idx'),
+        models.Index(fields=['source', 'isbn'],       name='book_source_isbn_idx'),
+        # Одиночные индексы на часто используемые поля
+        models.Index(fields=['created_at'],           name='book_created_at_idx'),
+        models.Index(fields=['isbn'],                 name='book_isbn_idx'),
+        # Индексы на поля фильтров (для быстрого поиска/фильтрации)
+        models.Index(fields=['genre'],                name='book_genre_idx'),
+        models.Index(fields=['publisher'],            name='book_publisher_idx'),
+        models.Index(fields=['publication_year'],     name='book_pub_year_idx'),
+        models.Index(fields=['category'],             name='book_category_idx'),
+        models.Index(fields=['book_type'],            name='book_book_type_idx'),
+        models.Index(fields=['language'],             name='book_language_idx'),
+        models.Index(fields=['author'],               name='book_author_idx'),
+        models.Index(fields=['series'],               name='book_series_idx'),
+        models.Index(fields=['condition'],            name='book_condition_idx'),
+        models.Index(fields=['cover_type'],           name='book_cover_type_idx'),
+        ]
+        # ... остальной код (constraints закомментированы и т.д.)
         # 🔇 Дедупликация на уровне БД отключена — она выполняется
         # на уровне приложения (в скриптах импорта).
         # constraints = [
