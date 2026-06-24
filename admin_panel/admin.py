@@ -58,29 +58,40 @@ def _search_all_books(query: str):
     if len(q) < 2:
         return qs.none()
 
+     # --- ISBN-поиск через isbn_digits (с индексом) ---
+    digits = ''.join(c for c in q if c.isdigit())
+    if len(digits) >= 4:
+        if len(digits) in (10, 13):
+            # Точное совпадение — моментально через индекс
+            return qs.filter(isbn_digits=digits)
+        # Частичное совпадение — через LIKE (тоже по индексу)
+        return qs.filter(isbn_digits__icontains=digits)
+
     # --- ISBN-поиск ---
     # Если запрос состоит только из цифр и похож на ISBN,
     # нормализуем его и сравниваем с каждым ISBN в базе.
     # Нужен ручной цикл, т.к. в БД ISBN могут храниться с дефисами/пробелами.
+    
     if _is_isbn_query(q):
         query_digits = _normalize_isbn(q)
         all_books = list(qs)
         filtered_books = []
-
+    
         for book in all_books:
             if not book.isbn:
                 continue
             book_isbn_normalized = _normalize_isbn(book.isbn)
             if query_digits in book_isbn_normalized:
                 filtered_books.append(book.pk)
-
+    
         if filtered_books:
             return qs.filter(pk__in=filtered_books)
         return qs.none()
 
-    # --- Текстовый поиск ---
-    # Ищем по трём полям: артикул, название, ISBN.
-    # icontains — регистронезависимое частичное совпадение.
+    #--- Текстовый поиск ---
+    #Ищем по трём полям: артикул, название, ISBN.
+    #icontains — регистронезависимое частичное совпадение.
+
     return qs.filter(
         Q(sku__icontains=q) |
         Q(title__icontains=q) |
