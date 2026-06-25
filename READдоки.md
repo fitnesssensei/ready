@@ -1,4 +1,4 @@
-# в базе данных на сервере 114531 книг с размерами
+# в базе данных на сервере 139510 книг
 
 ## база ЭКСМО заняла 55 часов
 
@@ -102,5 +102,3 @@ sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book
 ## ip servera  
 
 178.20.41.120
-
-можно удалить : admin_panel/management/commands/import_eksmo_books.py ???

@@ -204,7 +204,7 @@ def import_ast_books():
     #    if len(sys.argv) > 1 and sys.argv[1] == '--stdin':
     #        books_data = json.load(sys.stdin)
     #    else:
-    with open('vBaze/dnevnikiAST.json', 'r', encoding='utf-8') as f:
+    with open('vBaze/biografClean.json', 'r', encoding='utf-8') as f:
         books_data = json.load(f)
 
     print(f'Загружено {len(books_data)} книг из JSON')

@@ -27,6 +27,7 @@
 import json
 import os
 import re
+import sys
 from decimal import Decimal
 import django
 
@@ -285,14 +286,13 @@ def import_books():
     Вес извлекается из аннотации (паттерны «Масса: N г», «Вес: N г»).
     """
 
-    # Открываем и читаем JSON — из файла или из stdin (через пайп)это
-    #  на сервере
-    #if len(sys.argv) > 1 and sys.argv[1] == '--stdin':
-    #   books_data = json.load(sys.stdin)
-    #else:
-    # Открываем и читаем JSON файл с книгами
-    with open('JSON/48000_clean.json', 'r', encoding='utf-8') as f:
-        books_data = json.load(f)
+    # Открываем и читаем JSON — из файла или из stdin (через пайп)
+    if len(sys.argv) > 1 and sys.argv[1] == '--stdin':
+        books_data = json.load(sys.stdin)
+    else:
+        # Открываем и читаем JSON файл с книгами
+        with open('JSON/48000_clean.json', 'r', encoding='utf-8') as f:
+            books_data = json.load(f)
 
     print(f'Загружено {len(books_data)} книг из JSON')
 
