@@ -290,7 +290,7 @@ def import_books():
     if len(sys.argv) > 1 and sys.argv[1] == '--stdin':
         books_data = json.load(sys.stdin)
     else:
-        # Открываем и читаем JSON файл с книгами
+        # Открываем и читаем JSON файл с книгами 
         with open('JSON/48000_clean.json', 'r', encoding='utf-8') as f:
             books_data = json.load(f)
 

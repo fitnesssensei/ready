@@ -207,7 +207,7 @@ def import_ast_books():
     with open('vBaze/biografClean.json', 'r', encoding='utf-8') as f:
         books_data = json.load(f)
 
-    print(f'Загружено {len(books_data)} книг из JSON')
+    print(f'Загружено {len(books_data)} книг из JSON') 
 
     books_to_create = []
     skipped = 0
