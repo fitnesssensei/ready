@@ -84,6 +84,10 @@ python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 sudo systemctl restart gunicorn
 
+## добавление книг АСТ на сервер
+
+(venv) rustamismagilov@MacBook-Pro-Rustam ready % cat /Users/rustamismagilov/Desktop/ready/vBaze/dnevnikiAST.json | ssh semen@v3144166.hosted-by-vdsina.ru "cd /home/semen/ready && source venv/bin/activate && python import_ast.py --stdin"
+
 ## миграции
 
 source venv/bin/activate
@@ -98,3 +102,5 @@ sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book
 ## ip servera  
 
 178.20.41.120
+
+можно удалить : admin_panel/management/commands/import_eksmo_books.py ???

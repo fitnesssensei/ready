@@ -53,7 +53,9 @@ ready/
 │   ├── ozon_api.py                   # закомментированный Ozon API-клиент
 │   ├── management/commands/          # Django-команды импорта/обработки
 │   └── templates/admin_panel/        # шаблоны админки и демо-страниц
-├── import_books.py                   # legacy-скрипт импорта книг
+├── import_books.py                   # legacy-скрипт импорта книг (source='eksmo')
+├── import_ast.py                     # импорт книг издательства АСТ (source='ast')
+├── import_eksmo_books.py             # импорт книг Эксмо (source='eksmo')
 ├── merge_json.py                     # объединение JSON-файлов
 ├── extract_dims.py                   # извлечение размеров из JSON
 ├── vBaze/                            # большие JSON-каталоги
@@ -450,17 +452,17 @@ Legacy-скрипт для импорта книг из `JSON/13000_libex.json`.
 
 Импортирует книги с `source='eksmo'` батчами по 500 записей.
 
-### `admin_panel/management/commands/import_eksmo_books.py`
+### `import_eksmo_books.py`
 
-Основная Django-команда импорта Эксмо.
+Самостоятельный скрипт импорта книг Эксмо (source='eksmo') из JSON.
 Запуск:
 
 ```bash
 
-python manage.py import_eksmo_books
-python manage.py import_eksmo_books --update
-python manage.py import_eksmo_books --dry-run
-python manage.py import_eksmo_books --file /path/to/file.json
+python import_eksmo_books.py
+python import_eksmo_books.py --update
+python import_eksmo_books.py --dry-run
+python import_eksmo_books.py --file /path/to/file.json
 
 ```
 
@@ -477,6 +479,18 @@ parsing/eksmo_books_mt_deduped.json
 - обновляет существующие книги по цифрам ISBN при `--update`
 - использует `bulk_create` / `bulk_update`
 - batch size: 500
+
+### `fill_isbn_digits.py`
+
+Django-команда для заполнения поля `isbn_digits` у книг, у которых есть ISBN, но `isbn_digits` пустой.
+
+Поле `isbn_digits` хранит ISBN только цифрами (без дефисов/пробелов). Используется для быстрого поиска по ISBN и сопоставления книг при импорте/обновлении.
+
+Запуск:
+```bash
+python manage.py fill_isbn_digits
+python manage.py fill_isbn_digits --dry-run
+```
 
 ### `extract_dims.py`
 
@@ -690,17 +704,27 @@ sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book
    Они не выводят товары, заказы и клиентов из БД.
 3. **`dashboard.html` содержит устаревшую строку про Django 6.0.3.**  
    В `requirements.txt` и проекте используется Django 5.1.4.
-4. **`import_books.py` — legacy-скрипт.**  
-   Более актуальная команда — `python manage.py import_eksmo_books`.
-5. **Размеры хранятся в мм.**  
+4. **`import_books.py` — legacy-скрипт (source='eksmo').**  
+   Более актуальный скрипт — `python import_eksmo_books.py`.
+5. **`import_ast.py` — импорт книг издательства АСТ (source='ast').**  
+    Скрипт для импорта книг из JSON-файла издательства АСТ (\`JSON/dnevnikiAST.json\`). Поддерживает:
+    - Парсинг размеров из поля format ("145, 207" → width/length)
+    - Конвертацию веса из кг в граммы
+    - Маппинг возрастных ограничений (0+, 6+ → 9+ и т.д.)
+    - Автоматическое создание категорий по строковому названию
+    - Пропуск дубликатов по ISBN + source
+    - Режим --stdin для передачи JSON через пайп (без копирования на сервер)
+    Использование: \`python import_ast.py\` или \`cat books.json | python import_ast.py --stdin\`.
+
+6. **Размеры хранятся в мм.**  
    Для старых данных есть команда `convert_dims_to_mm`.
-6. **Фото книг хранятся как JSONField со списком относительных путей.**  
+7. **Фото книг хранятся как JSONField со списком относительных путей.**  
    Загрузка файлов выполняется в `BaseBookAdmin.save_model()`.
-7. **Некоторые большие данные игнорируются Git.**  
+8. **Некоторые большие данные игнорируются Git.**  
    Для восстановления полного каталога нужны внешние JSON/Excel-файлы или серверная БД.
-8. **В рабочей области уже есть изменения в старых `.md`-файлах.**  
+9. **В рабочей области уже есть изменения в старых `.md`-файлах.**  
    Этот файл создан отдельно как новая документация проекта.
-9. **Автоматическое определение категории.**  
+10. **Автоматическое определение категории.**  
    Категория присваивается по году издания при сохранении книги. Логика в `BaseBookAdmin.save_model()`.
 
 ---
@@ -712,10 +736,14 @@ sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book
 python manage.py check
 # Применить миграции
 python manage.py migrate
-# Импортировать книги Эксмо
-python manage.py import_eksmo_books --dry-run
+# Импортировать книги Эксмо (самостоятельный скрипт)
+python import_eksmo_books.py --dry-run
+# Импортировать книги АСТ из JSON
+python import_ast.py
+# Импортировать книги АСТ через пайп (без сохранения JSON на сервере)
+cat books.json | python import_ast.py --stdin
 # Обновить существующие книги Эксмо
-python manage.py import_eksmo_books --update
+python import_eksmo_books.py --update
 # Извлечь размеры из большого JSON
 python extract_dims.py --input vBaze/exmo_books.json --output vBaze/dims_only.json
 # Заполнить размеры из compact JSON
@@ -724,6 +752,8 @@ python manage.py apply_dims_from_json --dry-run
 python manage.py fill_dims_from_annotation --source eksmo --dry-run
 # Конвертировать см в мм
 python manage.py convert_dims_to_mm --dry-run
+# Заполнить isbn_digits для книг с ISBN (если поле пустое)
+python manage.py fill_isbn_digits
 # Собрать статику
 python manage.py collectstatic --noinput
 ```

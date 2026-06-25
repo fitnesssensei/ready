@@ -63,9 +63,17 @@ def _search_all_books(query: str):
     if len(digits) >= 4:
         if len(digits) in (10, 13):
             # Точное совпадение — моментально через индекс
-            return qs.filter(isbn_digits=digits)
-        # Частичное совпадение — через LIKE (тоже по индексу)
-        return qs.filter(isbn_digits__icontains=digits)
+            exact = qs.filter(isbn_digits=digits)
+            if exact.exists():
+                return exact
+            # Если точное совпадение не дало результатов — падаем ниже,
+            # в Python-цикл с normalize_isbn (contains).
+            # Это покрывает случаи:
+            #   - isbn_digits не заполнен (пустая строка) у старых книг
+            #   - ISBN-10 в БД, а пользователь ищет ISBN-13 (и наоборот)
+        else:
+            # Частичное совпадение — через LIKE (тоже по индексу)
+            return qs.filter(isbn_digits__icontains=digits)
 
     # --- ISBN-поиск ---
     # Если запрос состоит только из цифр и похож на ISBN,

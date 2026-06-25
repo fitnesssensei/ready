@@ -334,6 +334,8 @@ def import_books():
             title=book_data.get('title', '')[:200],
             author=book_data.get('author', '')[:100],
             isbn=isbn[:20] if isbn else None,
+            isbn_digits=''.join(c for c in (isbn or '') if c.isdigit()),  # ISBN только цифрами
+
             description=annotation,
             publisher=book_data.get('publisher', '')[:100],
             #genre=book_data.get('category', '')[:100],

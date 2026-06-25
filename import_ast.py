@@ -26,6 +26,7 @@
 import json
 import os
 import re
+import sys
 from decimal import Decimal
 import django
 
@@ -199,10 +200,11 @@ def import_ast_books():
 
     # Открываем и читаем JSON — из файла или из stdin (через пайп)это
     #  на сервере
-    #if len(sys.argv) > 1 and sys.argv[1] == '--stdin':
-    #   books_data = json.load(sys.stdin)
-    #else:
-    with open('JSON/dnevnikiAST.json', 'r', encoding='utf-8') as f:
+    #def import_ast_books():
+    #    if len(sys.argv) > 1 and sys.argv[1] == '--stdin':
+    #        books_data = json.load(sys.stdin)
+    #    else:
+    with open('vBaze/dnevnikiAST.json', 'r', encoding='utf-8') as f:
         books_data = json.load(f)
 
     print(f'Загружено {len(books_data)} книг из JSON')
@@ -242,6 +244,7 @@ def import_ast_books():
             title=book_data.get('title', '')[:200],
             author=book_data.get('author', '')[:100],
             isbn=isbn[:20] if isbn else None,
+            isbn_digits=''.join(c for c in (isbn or '') if c.isdigit()),  # ISBN только цифрами
             description=description,
             publisher=book_data.get('publisher', '')[:100],
             publication_year=parse_year(book_data.get('year')),
