@@ -56,7 +56,7 @@ class OzonTemplate(models.Model):
 
 class Category(models.Model):
     name = models.CharField(max_length=200, verbose_name="Название категории")
-    ozon_category_id = models.CharField(max_length=50, verbose_name="ID категории Озон", unique=True, blank=True)
+    ozon_category_id = models.CharField(max_length=50, verbose_name="ID категории Озон", unique=True, blank=True, null=True)
     description = models.TextField(blank=True, verbose_name="Описание")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
 
@@ -80,10 +80,12 @@ def normalize_isbn(value):
 class Book(models.Model):
     SOURCE_MANUAL = 'manual'
     SOURCE_EKSMO = 'eksmo'
+    SOURCE_AST = 'ast'
 
     SOURCE_CHOICES = [
         (SOURCE_MANUAL, 'Админка'),
         (SOURCE_EKSMO, 'Импорт Эксмо'),
+        (SOURCE_AST, 'Импорт АСТ'),
 
     ]
 
@@ -191,7 +193,15 @@ class Book(models.Model):
         ('12+', '12+'),
         ('10+', '10+'),
         ('9+', '9+'),
-        
+        ('8+', '8+'),
+        ('7+', '7+'),
+        ('6+', '6+'),
+        ('5+', '5+'),
+        ('4+', '4+'),
+        ('3+', '3+'),
+        ('2+', '2+'),
+        ('1+', '1+'),
+        ('0+', '0+'),
     ]
 
     IS_ADULT = [
@@ -264,9 +274,9 @@ class Book(models.Model):
     illustrator = models.CharField(max_length=100, verbose_name="Иллюстратор", blank=True, null=True)
     translator = models.CharField(max_length=100, verbose_name="Переводчик", blank=True, null=True)
     genre = models.CharField(max_length=100, choices=GENRE, verbose_name="Направление", default='fantastic', blank=True)
-    target_audience = models.CharField(max_length=100, choices=TARGET_AUDIENCE, verbose_name="Целевая аудитория", default='for adults', blank=True)  # целевая аудитория 
+    target_audience = models.CharField(max_length=100, choices=TARGET_AUDIENCE, verbose_name="Целевая аудитория", default='or children', blank=True)  # целевая аудитория 
     age_restrictions = models.CharField(max_length=100, choices=AGE_RESTRICTIONS, verbose_name="Возрастные ограничения", default='18+', blank=True)  # возраст огран  
-    is_adult = models.CharField(choices=IS_ADULT, verbose_name="Признак 18+", default="no", blank=True )
+    is_adult = models.CharField(choices=IS_ADULT, verbose_name="Признак 18+", default="yes", blank=True )
     publisher = models.CharField(max_length=100, verbose_name="Издательство", default="")
     series = models.CharField(max_length=200, verbose_name="Серия", blank=True, null=True)
     publication_year = models.PositiveIntegerField(verbose_name="Год издания", blank=True, null=True)

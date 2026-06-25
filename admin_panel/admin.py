@@ -500,7 +500,6 @@ class EksmoBookAdmin(BaseBookAdmin):
                 'sku', 'title', 'category', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre', 'target_audience',  # целев аудитор
                 'age_restrictions', 'is_adult', 'publisher', 'series', 'language', 'condition', 'cover_type','book_type',  # возраст огран
                 'paper_type', 'hashtags', 'pages', 'publication_year',  # добавил - тип бумаги, хештеги, тип книги
-                'display_dimensions',
             )
         }),
         ('Коммерческая информация', {
