@@ -143,13 +143,17 @@ def _book_to_form_dict(book: Book, *, for_manual_template: bool = False) -> dict
         'photos': book.photos or [],
     }
 
-
+# поле КАТЕГРИЯ
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ('name', 'ozon_category_id', 'created_at')
     search_fields = ('name', 'ozon_category_id')
     ordering = ('name',)
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        # Показываем только категории с заполненным Ozon ID
+        return qs.exclude(ozon_category_id__isnull=True).exclude(ozon_category_id='')
 
 @admin.register(OzonTemplate)
 class OzonTemplateAdmin(admin.ModelAdmin):

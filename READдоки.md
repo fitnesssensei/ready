@@ -79,7 +79,7 @@ ssh semen@v3144166.hosted-by-vdsina.ru
 cd /home/semen/ready
 
 git pull origin main
-source venv/bin/activate
+source venv/bin/activate 
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 sudo systemctl restart gunicorn
@@ -87,6 +87,10 @@ sudo systemctl restart gunicorn
 ## добавление книг АСТ на сервер
 
 (venv) rustamismagilov@MacBook-Pro-Rustam ready % cat /Users/rustamismagilov/Desktop/ready/vBaze/dnevnikiAST.json | ssh semen@v3144166.hosted-by-vdsina.ru "cd /home/semen/ready && source venv/bin/activate && python import_ast.py --stdin"
+
+## добавление книг Либекс на сервер
+
+cat /Users/rustamismagilov/Desktop/ready/JSON_libex/52000_clean.json | ssh semen@v3144166.hosted-by-vdsina.ru "cd /home/semen/ready && source venv/bin/activate && python import_books.py --stdin"
 
 ## миграции
 
