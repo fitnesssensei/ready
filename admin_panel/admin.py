@@ -207,10 +207,10 @@ class BaseBookAdmin(admin.ModelAdmin):
     autocomplete_fields = ['category']  # добавил - автокомплит для категории
 
     list_display = (
-        'sku', 'title', 'category', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre', 'target_audience',  # добавил - целевая аудит, возростные ограничения
-        'age_restrictions', 'is_adult', 'publisher', 'series', 'language', 'condition', 'cover_type','book_type', 
-        'paper_type', 'hashtags', 'pages', 'price', 'old_price', 'stock', 'publication_year',
-        'display_dimensions', 'created_at',
+        'sku', 'author', 'author_oblozh', 'title', 'publisher', 'publication_year', 'series', 'pages', 'isbn', 'description',
+        'category', 'book_type', 'condition', 'genre', 'cover_type', 'paper_type', 'language', 'translator', 'illustrator',
+        'target_audience', 'age_restrictions', 'is_adult', 'price', 'old_price', 'vat_rate', 'stock', 'tnved_code',
+        'hashtags', 'pages', 'display_dimensions', 'created_at',
     )
     list_filter = (
         'category', 'genre', 'publisher', 'language',
@@ -227,17 +227,19 @@ class BaseBookAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Основная информация', {
             'fields': (
-                'sku', 'title', 'category', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre', 'target_audience',  # целев аудитория
-                'age_restrictions', 'is_adult', 'publisher', 'series', 'publication_year', 'language', 'condition',  # возраст огран
-                'cover_type', 'book_type', 'paper_type', 'hashtags', 'pages', 'photos', 'description',  # добавил - тип бумаги, хештеги
+                'sku', 'author', 'author_oblozh', 'title', 'publisher', 'publication_year', 'series', 'pages', 'isbn', 'description',
+                'category', 'book_type', 'condition', 'genre', 'cover_type', 'paper_type', 'language', 'translator', 'illustrator', 
+                'target_audience', 'age_restrictions', 'is_adult', 'price', 'old_price', 'vat_rate', 'stock', 'tnved_code',
+                'weight', 'length', 'width', 'height', 'hashtags', 'photos',
+                
             )
         }),
-        ('Коммерческая информация', {
-            'fields': ('price', 'old_price', 'vat_rate', 'stock', 'isbn')
-        }),
-        ('Логистика', {
-            'fields': ('tnved_code', 'weight', 'length', 'width', 'height')
-        }),
+        #('Коммерческая информация', {
+        #    'fields': ()
+        #}),
+        #('Логистика', {
+        #    'fields': ()
+        #}),
         ('Служебное', {
             'fields': ('source', 'publication_date', 'created_at', 'updated_at'),
             'classes': ('collapse',),
