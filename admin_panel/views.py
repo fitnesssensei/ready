@@ -154,6 +154,8 @@ def export_books_to_ozon_template(request):
             'целевая аудитория литературы': lambda book: book.get_target_audience_display() or '',
             '#хештеги': lambda book: book.hashtags or '',
             'аннотация': lambda book: book.description or '',
+            'иллюстратор': lambda book: book.illustrator or '',
+            'переводчик': lambda book: book.translator or '',
             'издательство': lambda book: book.publisher or '',
             'серия': lambda book: book.series or '',
             'год выпуска': lambda book: book.publication_year or '',

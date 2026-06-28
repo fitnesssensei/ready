@@ -207,9 +207,9 @@ class BaseBookAdmin(admin.ModelAdmin):
     autocomplete_fields = ['category']  # добавил - автокомплит для категории
 
     list_display = (
-        'sku', 'author', 'author_oblozh', 'title', 'publisher', 'publication_year', 'series', 'pages', 'isbn', 'description',
+        'sku', 'author', 'author_oblozh', 'title', 'publisher', 'publication_year', 'series', 'pages', 'isbn',  # 'description',
         'category', 'book_type', 'condition', 'genre', 'cover_type', 'paper_type', 'language', 'translator', 'illustrator',
-        'target_audience', 'age_restrictions', 'is_adult', 'price', 'old_price', 'vat_rate', 'stock', 'tnved_code',
+        'target_audience', 'age_restrictions', 'is_adult', 'price', 'old_price', 'vat_rate', 'stock',  # 'tnved_code',
         'hashtags', 'pages', 'display_dimensions', 'created_at',
     )
     list_filter = (
