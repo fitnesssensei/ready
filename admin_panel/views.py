@@ -1,5 +1,7 @@
+import base64
 import logging
 import os
+import unicodedata
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, Alignment
@@ -67,151 +69,232 @@ def orders(request):
     return render(request, 'admin_panel/orders.html')
 def customers(request):
     return render(request, 'admin_panel/customers.html')
+def _slugify_name(name: str) -> str:
+    """ASCII-safe slug for filenames: lower, replace spaces with _, strip non-ascii."""
+    normalized = unicodedata.normalize('NFKD', name)
+    ascii_bytes = normalized.encode('ascii', 'ignore').decode('ascii')
+    slug = ascii_bytes.lower().replace(' ', '_').replace('/', '_')
+    slug = ''.join(ch for ch in slug if ch.isalnum() or ch == '_')
+    return slug[:50] or 'template'
+
+
+def _ozon_headers_and_mapping(ws, media_base_url):
+    header_row = 2
+    headers = {}
+    for col_num in range(1, ws.max_column + 1):
+        cell_value = ws.cell(row=header_row, column=col_num).value
+        if cell_value:
+            header_clean = str(cell_value).replace('\n', ' ').strip().lower()
+            headers[header_clean] = col_num
+    field_mapping = {
+        'артикул*': lambda book: book.sku or '',
+        'название товара': lambda book: book.title or '',
+        'цена, руб.*': lambda book: float(book.price) if book.price else '',
+        'цена до скидки, руб.': lambda book: float(book.old_price) if book.old_price else '',
+        'ндс, %*': lambda book: int(book.vat_rate) if book.vat_rate else 0,
+        'штрихкод (серийный номер / ean)': lambda book: '',
+        'isbn': lambda book: book.isbn or '',
+        'isbn*': lambda book: book.isbn or '',
+        'вес в упаковке, г*': lambda book: int(float(book.weight)) if book.weight else '',
+        'ширина упаковки, мм*': lambda book: int(float(book.width)) if book.width else '',
+        'высота упаковки, мм*': lambda book: int(float(book.height)) if book.height else '',
+        'длина упаковки, мм*': lambda book: int(float(book.length)) if book.length else '',
+        'ссылка на главное фото*': lambda book: (
+            f'{media_base_url}{book.photos[0]}' if book.photos else ''
+        ),
+        'ссылки на дополнительные фото': lambda book: (
+            ', '.join(f'{media_base_url}{photo}' for photo in book.photos[1:])
+            if len(book.photos) > 1 else ''
+        ),
+        'артикул фото': lambda book: book.sku or '',
+        'автор на обложке*': lambda book: (
+            book.author_oblozh if book.author_oblozh else (book.author or '')
+        ),
+        'автор': lambda book: book.author or '',
+        'тип обложки': lambda book: book.get_cover_type_display() or '',
+        'тип книги': lambda book: _ozon_book_type(book),
+        'тип*': lambda book: 'Печатная книга',
+        'бренд*': lambda book: book.publisher or 'Нет бренда',
+        'тн вэд коды еаэс*': lambda book: book.tnved_code or '',
+        'направление*': lambda book: book.get_genre_display() or '',
+        'целевая аудитория литературы': lambda book: book.get_target_audience_display() or '',
+        '#хештеги': lambda book: book.hashtags or '',
+        'аннотация': lambda book: book.description or '',
+        'иллюстратор': lambda book: book.illustrator or '',
+        'переводчик': lambda book: book.translator or '',
+        'издательство': lambda book: book.publisher or '',
+        'серия': lambda book: book.series or '',
+        'год выпуска': lambda book: book.publication_year or '',
+        'тип бумаги в книге': lambda book: book.get_paper_type_display() or '',
+        'язык издания': lambda book: book.get_language_display() or 'Русский',
+        'количество страниц': lambda book: book.pages or '',
+        'вес товара, г': lambda book: int(float(book.weight)) if book.weight else '',
+        'сохранность книги': lambda book: book.get_condition_display() or '',
+        'возрастные ограничения': lambda book: book.get_age_restrictions_display() or '',
+        'признак 18+': lambda book: book.is_adult,
+    }
+    return headers, field_mapping
+
+
+def _fill_ozon_sheet(ws, books, headers, field_mapping):
+    current_row = 5
+    for idx, book in enumerate(books, 1):
+        ws.cell(row=current_row, column=1).value = idx
+        for header_name, col_num in headers.items():
+            mapper = field_mapping.get(header_name) or field_mapping.get(header_name.rstrip('*'))
+            if mapper:
+                try:
+                    value = mapper(book)
+                    ws.cell(row=current_row, column=col_num).value = value
+                except Exception as e:
+                    logger.warning(
+                        f"Ошибка при заполнении '{header_name}' "
+                        f"для книги {book.id} ({book.sku}): {e}"
+                    )
+                    ws.cell(row=current_row, column=col_num).value = ''
+        current_row += 1
+
+
 def export_books_to_ozon_template(request):
     """
-    Экспорт выбранных книг в шаблон Ozon.
-    Загружает активный шаблон Excel из модели OzonTemplate и заполняет
-    данными книг с автоматическим маппингом всех 78 колонок шаблона.
-    Особенности:
-        - Маппинг всех колонок шаблона на поля модели Book
-        - Автоматическое определение направления (колонки 47-72)
-        - Форматирование размеров в см и мм
-        - Тип* и Тип книги определяются из book_type
+    Экспорт выбранных книг в шаблон(ы) Ozon.
+    Поддерживает несколько активных шаблонов с распределением по publication_year.
+    Если активен 1 шаблон — возвращает один .xlsx.
+    Если >= 2 — возвращает ZIP-архив (.zip) со всеми сгенерированными .xlsx файлами.
     """
+    import tempfile
+
     if hasattr(request, 'ozon_export_queryset'):
-        books = request.ozon_export_queryset
+        books = list(request.ozon_export_queryset.select_related('category').all())
     else:
-        books = Book.objects.select_related('category').all()
-    template = OzonTemplate.objects.filter(is_active=True).first()
-    if not template:
+        books = list(Book.objects.select_related('category').all())
+
+    templates = list(OzonTemplate.objects.filter(is_active=True).order_by('year_from'))
+    if not templates:
         return HttpResponse(
             "Ошибка: Не найден активный шаблон Ozon. Загрузите шаблон через админку.",
             content_type='text/plain; charset=utf-8',
             status=400
         )
-    template_path = os.path.join(settings.MEDIA_ROOT, template.file.name)
-    if not os.path.exists(template_path):
-        return HttpResponse(
-            f"Ошибка: Файл шаблона не найден: {template.file.name}",
-            content_type='text/plain; charset=utf-8',
-            status=404
-        )
+
     media_base_url = getattr(settings, 'MEDIA_BASE_URL',
                               request.build_absolute_uri(settings.MEDIA_URL))
-    try:
-        wb = load_workbook(template_path)
-        if 'Шаблон' not in wb.sheetnames:
-            return HttpResponse(
-                "Ошибка: В шаблоне не найден лист 'Шаблон'",
-                content_type='text/plain; charset=utf-8',
-                status=400
-            )
-        ws = wb['Шаблон']
-        header_row = 2
-        headers = {}
-        for col_num in range(1, ws.max_column + 1):
-            cell_value = ws.cell(row=header_row, column=col_num).value
-            if cell_value:
-                header_clean = str(cell_value).replace('\n', ' ').strip().lower()
-                headers[header_clean] = col_num
-        logger.info(f'Ozon template headers: {list(headers.keys())}')
-        isbn_cols = {k: v for k, v in headers.items() if 'isbn' in k.lower()}
-        logger.info(f'ISBN columns found: {isbn_cols}')
-        field_mapping = {
-            'артикул*': lambda book: book.sku or '',
-            'название товара': lambda book: book.title or '',
-            'цена, руб.*': lambda book: float(book.price) if book.price else '',
-            'цена до скидки, руб.': lambda book: float(book.old_price) if book.old_price else '',
-            'ндс, %*': lambda book: int(book.vat_rate) if book.vat_rate else 0,
-            #'sku': lambda book: book.sku or '',
-            'штрихкод (серийный номер / ean)': lambda book: '',  # book.isbn or '',
-            'isbn': lambda book: book.isbn or '',
-            'isbn*': lambda book: book.isbn or '',
-            'вес в упаковке, г*': lambda book: int(float(book.weight)) if book.weight else '',
-            'ширина упаковки, мм*': lambda book: int(float(book.width)) if book.width else '',  # убрал  / 10 
-            'высота упаковки, мм*': lambda book: int(float(book.height)) if book.height else '',  # убрал  / 10
-            'длина упаковки, мм*': lambda book: int(float(book.length)) if book.length else '',  # убрал  / 10
 
-            'ссылка на главное фото*': lambda book: (
-                f'{media_base_url}{book.photos[0]}' if book.photos else ''
-            ),
-            'ссылки на дополнительные фото': lambda book: (
-                ', '.join(f'{media_base_url}{photo}' for photo in book.photos[1:])
-                if len(book.photos) > 1 else ''
-            ),
-            'артикул фото': lambda book: book.sku or '',
-            'автор на обложке*': lambda book: (
-                book.author_oblozh if book.author_oblozh else (book.author or '')
-            ),
-            'автор': lambda book: book.author or '',
-            'тип обложки': lambda book: book.get_cover_type_display() or '',            
-            #'тип книги': lambda book: _ozon_book_type_display(book),
-            'тип книги': lambda book: _ozon_book_type(book),
-            'тип*': lambda book: 'Печатная книга',
-            'бренд*': lambda book: book.publisher or 'Нет бренда',
-            'тн вэд коды еаэс*': lambda book: book.tnved_code or '',
-            'направление*': lambda book: book.get_genre_display() or '',
-            'целевая аудитория литературы': lambda book: book.get_target_audience_display() or '',
-            '#хештеги': lambda book: book.hashtags or '',
-            'аннотация': lambda book: book.description or '',
-            'иллюстратор': lambda book: book.illustrator or '',
-            'переводчик': lambda book: book.translator or '',
-            'издательство': lambda book: book.publisher or '',
-            'серия': lambda book: book.series or '',
-            'год выпуска': lambda book: book.publication_year or '',
-            'тип бумаги в книге': lambda book: book.get_paper_type_display() or '',
-            'язык издания': lambda book: book.get_language_display() or 'Русский',
-            'количество страниц': lambda book: book.pages or '',
-            #'размер упаковки (длина х ширина х высота), см': lambda book: _format_dimensions_cm(book),
-            #'размеры, мм': lambda book: _format_dimensions_mm(book),
-            'вес товара, г': lambda book: int(float(book.weight)) if book.weight else '',
-            'сохранность книги': lambda book: book.get_condition_display() or '',
-            'возрастные ограничения': lambda book: book.get_age_restrictions_display() or '',
-            'признак 18+': lambda book:book.is_adult
-        }
-        current_row = 5
-        for idx, book in enumerate(books, 1):
-            ws.cell(row=current_row, column=1).value = idx
-            for header_name, col_num in headers.items():
-                mapper = field_mapping.get(header_name) or field_mapping.get(header_name.rstrip('*'))
-                if mapper:
-                    try:
-                        value = mapper(book)
-                        ws.cell(row=current_row, column=col_num).value = value
-                    except Exception as e:
-                        logger.warning(
-                            f"Ошибка при заполнении '{header_name}' "
-                            f"для книги {book.id} ({book.sku}): {e}"
-                        )
-                        ws.cell(row=current_row, column=col_num).value = ''
-            current_row += 1
+    def _in_range(book_year, tpl):
+        if book_year is None:
+            return False
+        if tpl.year_from is not None and book_year < tpl.year_from:
+            return False
+        if tpl.year_to is not None and book_year > tpl.year_to:
+            return False
+        return True
+
+    templates_any_range = [
+        t for t in templates
+        if t.year_from is None and t.year_to is None
+    ]
+    templates_with_range = [
+        t for t in templates
+        if t.year_from is not None or t.year_to is not None
+    ]
+
+    def _range_width(tpl):
+        if tpl.year_from is None and tpl.year_to is None:
+            return float('inf')
+        a = tpl.year_from if tpl.year_from is not None else float('-inf')
+        b = tpl.year_to if tpl.year_to is not None else float('inf')
+        return b - a
+
+    templates_with_range.sort(key=lambda t: (_range_width(t), -(t.year_from or 0)))
+
+    template_groups = {t: [] for t in templates}
+
+    for book in books:
+        placed = False
+        for tpl in templates_with_range:
+            if _in_range(book.publication_year, tpl):
+                template_groups[tpl].append(book)
+                placed = True
+                break
+        if not placed:
+            if templates_any_range:
+                tpl = min(
+                    templates_any_range,
+                    key=lambda t: len(template_groups[t])
+                )
+                template_groups[tpl].append(book)
+            elif templates:
+                template_groups[templates[0]].append(book)
+
+    def _build_xlsx(tpl, tpl_books):
+        tpl_path = os.path.join(settings.MEDIA_ROOT, tpl.file.name)
+        if not os.path.exists(tpl_path):
+            raise FileNotFoundError(f"Файл шаблона не найден: {tpl.file.name}")
+        wb = load_workbook(tpl_path)
+        if 'Шаблон' not in wb.sheetnames:
+            raise ValueError(f"В шаблоне '{tpl.name}' нет листа 'Шаблон'")
+        ws = wb['Шаблон']
+        headers, field_mapping = _ozon_headers_and_mapping(ws, media_base_url)
+        _fill_ozon_sheet(ws, tpl_books, headers, field_mapping)
+        tmp = tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False)
+        wb.save(tmp.name)
+        tmp.close()
+        return tmp.name, len(tpl_books)
+
+    results = []
+    for tpl in templates:
+        tpl_books = template_groups.get(tpl, [])
+        if not tpl_books:
+            continue
+        tmp_path, count = _build_xlsx(tpl, tpl_books)
+        results.append((tpl, tpl_books, tmp_path, count))
+
+    if not results:
+        return HttpResponse(
+            "Нет книг, попадающих под условия активных шаблонов.",
+            content_type='text/plain; charset=utf-8',
+            status=400
+        )
+
+    # --- Один шаблон → возвращаем .xlsx напрямую ---
+    if len(results) == 1:
+        tpl, tpl_books, tmp_path, count = results[0]
+        with open(tmp_path, 'rb') as f:
+            file_data = f.read()
+        os.unlink(tmp_path)
+        filename = f"{_slugify_name(tpl.name)}_{count}_books.xlsx"
         response = HttpResponse(
+            file_data,
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        response['Content-Disposition'] = f'attachment; filename="ozon_export_{len(books)}_books.xlsx"'
-        wb.save(response)
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
-    except Exception as e:
-        logger.error(f"Ошибка при экспорте в шаблон Ozon: {e}")
-        return HttpResponse(
-            f"Ошибка при обработке шаблона: {str(e)}",
-            content_type='text/plain; charset=utf-8',
-            status=500
-        )
+
+    # --- Несколько шаблонов → возвращаем ZIP-архив ---
+    from io import BytesIO
+    import zipfile
+
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for tpl, tpl_books, tmp_path, count in results:
+            filename = f"{_slugify_name(tpl.name)}_{count}_books.xlsx"
+            zf.write(tmp_path, arcname=filename)
+            os.unlink(tmp_path)
+
+    zip_buffer.seek(0)
+    response = HttpResponse(
+        zip_buffer.getvalue(),
+        content_type='application/zip'
+    )
+    response['Content-Disposition'] = 'attachment; filename="ozon_templates_export.zip"'
+    return response
+
+
 def export_books_to_excel(request):
     """
     Экспорт выбранных книг в стандартный Excel файл.
     Создает Excel файл (.xlsx) со всеми данными книг в табличном формате.
     Используется библиотека openpyxl для работы с Excel.
-    Args:
-        request: HTTP запрос с атрибутом excel_export_queryset (queryset книг)
-    Returns:
-        HttpResponse с Excel файлом для скачивания
-    Особенности:
-        - 25 колонок с полной информацией о книгах
-        - Форматированные заголовки (жирный шрифт, выравнивание)
-        - Автоматическая ширина колонок (макс. 50 символов)
-        - Преобразование Decimal в float для корректного отображения
     """
     # Получить книги из запроса или все книги, если не указано
     if hasattr(request, 'excel_export_queryset'):

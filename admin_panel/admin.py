@@ -181,7 +181,7 @@ class OzonTemplateAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Основная информация', {
-            'fields': ('name', 'file', 'description', 'is_active')
+            'fields': ('name', 'file', 'description', 'is_active', 'year_from', 'year_to')
         }),
         ('Служебное', {
             'fields': ('uploaded_at',),
@@ -320,13 +320,13 @@ class BaseBookAdmin(admin.ModelAdmin):
 
     def export_selected_to_ozon(self, request, queryset):
         """
-        Action для экспорта выбранных книг в шаблон Ozon.
+        Action для экспорта выбранных книг в шаблон(ы) Ozon.
 
-        Использует активный шаблон из модели OzonTemplate:
-        - Загружает последний активный шаблон
-        - Заполняет его данными выбранных книг
+        Использует активные шаблоны из модели OzonTemplate:
+        - Распределяет книги по шаблонам согласно year_from/year_to
+        - Заполняет каждый шаблон данными подходящих книг
         - Автоматически преобразует единицы измерения (кг→г, см→мм)
-        - Возвращает готовый файл для загрузки на Ozon
+        - При 1 шаблоне возвращает .xlsx; при >=2 — ZIP-архив
         """
         from .views import export_books_to_ozon_template
         request.ozon_export_queryset = queryset

@@ -12,8 +12,8 @@ class OzonTemplate(models.Model):
     товаров в формате, совместимом с Ozon Seller.
 
     Особенности:
-    - Только один шаблон может быть активным одновременно
-    - При активации нового шаблона, старые автоматически деактивируются
+    - Несколько шаблонов могут быть активными одновременно
+    - По году издания книги определяется, в какой шаблон она попадёт
     - Файлы хранятся в media/ozon_templates/
     """
 
@@ -26,7 +26,22 @@ class OzonTemplate(models.Model):
     # Необязательное описание для дополнительной информации
     description = models.TextField(blank=True, verbose_name="Описание")
 
-    # Флаг активности - только один шаблон может быть активным
+    # Минимальный год издания (включительно), с которого книги попадают в этот шаблон
+    year_from = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Год от (включительно)",
+        help_text="Если указано — книги с publication_year >= этого значения могут попасть сюда."
+    )
+    # Максимальный год издания (включительно), до которого книги попадают в этот шаблон
+    year_to = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Год до (включительно)",
+        help_text="Если указано — книги с publication_year <= этого значения могут попасть сюда."
+    )
+
+    # Флаг активности
     is_active = models.BooleanField(default=True, verbose_name="Активный")
 
     # Автоматическая дата загрузки шаблона
@@ -40,18 +55,6 @@ class OzonTemplate(models.Model):
     def __str__(self):
         """Строковое представление: название + дата"""
         return f"{self.name} ({self.uploaded_at.strftime('%Y-%m-%d')})"
-
-    def save(self, *args, **kwargs):
-        """
-        Переопределенный метод сохранения.
-
-        Логика: если текущий шаблон активен, деактивируем все остальные.
-        Это гарантирует, что только один шаблон активен в любой момент времени.
-        """
-        if self.is_active:
-            # Деактивировать все остальные шаблоны перед сохранением
-            OzonTemplate.objects.filter(is_active=True).update(is_active=False)
-        super().save(*args, **kwargs)
 
 
 class Category(models.Model):
