@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 BOOK_TYPE_OZON_MAPPING = {
     'printed book': 'Печатная книга',
     'second': 'Second-hand книга',
-    'bookinist': 'Букинистическое издание',
+    'bookinist': 'Букинистика',
     'print_on_demand': 'Печать по требованию',
 }
 
@@ -25,7 +25,7 @@ BOOK_TYPE_OZON_MAPPING = {
 BOOK_TYPE_DISPLAY_MAPPING = {
     'printed book': 'Печатная книга',
     'second': 'Б/У',
-    'bookinist': 'Букинистическое издание',
+    'bookinist': 'Букинистика',
     'print_on_demand': 'Печать по требованию',
 }
 
