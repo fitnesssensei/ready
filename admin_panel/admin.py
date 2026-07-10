@@ -206,7 +206,7 @@ class BaseBookAdmin(admin.ModelAdmin):
     # добавил - автокомплит для категории
     autocomplete_fields = ['category']  # добавил - автокомплит для категории
 
-    list_display = (
+    list_display = ( 
         'sku', 'author', 'author_oblozh', 'title', 'publisher', 'publication_year', 'series', 'pages', 'isbn',  # 'description',
         'category', 'book_type', 'condition', 'genre', 'cover_type', 'paper_type', 'language', 'translator', 'illustrator',
         'target_audience', 'age_restrictions', 'is_adult', 'price', 'old_price', 'vat_rate', 'stock',  # 'tnved_code',
@@ -511,17 +511,18 @@ class EksmoBookAdmin(BaseBookAdmin):
     fieldsets = (
         ('Основная информация', { 
             'fields': (
-                'sku', 'title', 'category', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre', 'target_audience',  # целев аудитор
-                'age_restrictions', 'is_adult', 'publisher', 'series', 'language', 'condition', 'cover_type','book_type',  # возраст огран
-                'paper_type', 'hashtags', 'pages', 'publication_year',  # добавил - тип бумаги, хештеги, тип книги
+                'sku', 'author', 'author_oblozh', 'title', 'publisher', 'publication_year', 'series', 'pages', 'isbn',
+                'category', 'book_type', 'condition', 'genre', 'cover_type', 'paper_type', 'language', 'translator', 'illustrator',  # возраст огран
+                'target_audience', 'age_restrictions', 'is_adult', 'price', 'old_price', 'vat_rate', 'stock', 'tnved_code',
+                'weight', 'length', 'width', 'height', 'hashtags', 'photos',
             )
         }),
-        ('Коммерческая информация', {
-            'fields': ('price', 'old_price', 'vat_rate', 'stock', 'isbn')
-        }),
-        ('Логистика', {
-            'fields': ('tnved_code', 'weight', 'length', 'width', 'height')
-        }),
+        #('Коммерческая информация', {
+        #    'fields': ()
+        #}),
+        #('Логистика', {
+        #    'fields': ()
+        #}),
         ('Служебное', {
             'fields': ('source', 'publication_date', 'created_at', 'updated_at'),
             'classes': ('collapse',),

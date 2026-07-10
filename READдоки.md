@@ -1,4 +1,4 @@
-# в базе данных на сервере 139510 книг
+# в базе данных на сервере 287244 книг
 
 ## важно важно важно
 
@@ -76,7 +76,7 @@ git add .
 git commit -m "update"
 git push origin main
 
-## Деплой на сервер
+## ХХХ Деплой на сервер
 
 ssh semen@v3144166.hosted-by-vdsina.ru
 
@@ -88,13 +88,45 @@ python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 sudo systemctl restart gunicorn
 
+## полный шаблон деплоя:
+
+cd /home/semen/ready
+git fetch origin
+git checkout production
+git cherry-pick <хеш-коммита>
+source venv/bin/activate
+python manage.py migrate --noinput
+python manage.py collectstatic --noinput
+sudo systemctl restart gunicorn
+
+1. Подтянуть изменения с GitHub
+git fetch origin
+
+2. Переключиться на продовую ветку
+git checkout production
+
+3. Перенести нужный коммит из main
+git cherry-pick <хеш-коммита>
+
+4. Активировать виртуальное окружение
+source venv/bin/activate
+
+5. Применить миграции (если были изменения в моделях БД)
+python manage.py migrate --noinput
+
+6. Собрать статику (если менялись CSS/JS/картинки)
+python manage.py collectstatic --noinput
+
+7. Перезапустить Gunicorn
+sudo systemctl restart gunicorn
+
 ## добавление книг АСТ на сервер
 
-(venv) rustamismagilov@MacBook-Pro-Rustam ready % cat /Users/rustamismagilov/Desktop/ready/vBaze/dnevnikiAST.json | ssh semen@v3144166.hosted-by-vdsina.ru "cd /home/semen/ready && source venv/bin/activate && python import_ast.py --stdin"
+(venv) rustamismagilov@MacBook-Pro-Rustam ready % cat /Users/rustamismagilov/Desktop/ready/JSONSS/hudLitClean.json | ssh semen@v3144166.hosted-by-vdsina.ru "cd /home/semen/ready && source venv/bin/activate && python import_ast.py --stdin"
 
 ## добавление книг Либекс на сервер
 
-cat /Users/rustamismagilov/Desktop/ready/JSON_libex/52000_clean.json | ssh semen@v3144166.hosted-by-vdsina.ru "cd /home/semen/ready && source venv/bin/activate && python import_books.py --stdin"
+cat /Users/rustamismagilov/Desktop/ready/JSONSS/30000_libex.json | ssh semen@v3144166.hosted-by-vdsina.ru "cd /home/semen/ready && source venv/bin/activate && python import_books.py --stdin"
 
 ## миграции
 
@@ -110,3 +142,39 @@ sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book
 ## ip servera  
 
 178.20.41.120
+
+## перенести Один конкретный коммит из Гитхаб в продакшн — cherry-pick
+-Когда вы в main сделали один фикс и хотите перенести только его:
+
+# Найти хеш коммита в main (локально на Mac)
+git log --oneline -10
+
+# На сервере
+cd /home/semen/ready
+git fetch origin
+git checkout production
+git cherry-pick <хеш-коммита>
+source venv/bin/activate
+python manage.py migrate --noinput
+python manage.py collectstatic --noinput
+sudo systemctl restart gunicorn
+
+## перенос Несколько коммитов подряд — merge
+Когда вы в main накопили несколько изменений и хотите перенести их все разом в production:
+На сервере:
+cd /home/semen/ready
+git fetch origin
+
+## Смержить main в production (приедут все новые коммиты из main)
+git checkout production
+git merge origin/main
+
+## Если возник конфликт — исправить и продолжить
+git add .
+git merge --continue
+source venv/bin/activate
+python manage.py migrate --noinput
+python manage.py collectstatic --noinput
+sudo systemctl restart gunicorn
+
+## ⚠️ Нюанс: merge притянет все коммиты из main, включая те, которые вы в прошлый раз не захотели деплоить. Если вы их уже откатили в main через git revert — то при merge приедет и реверт, и сами изменения (они скомпенсируют друг друга).
