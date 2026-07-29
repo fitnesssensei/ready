@@ -116,6 +116,7 @@ def _ozon_headers_and_mapping(ws, media_base_url):
         'тип*': lambda book: 'Печатная книга',
         'бренд*': lambda book: book.publisher or 'Нет бренда',
         'тн вэд коды еаэс*': lambda book: book.tnved_code or '',
+        'тн вэд коды еаэс': lambda book: book.tnved_code or '',
         'направление*': lambda book: book.get_genre_display() or '',
         'целевая аудитория литературы': lambda book: book.get_target_audience_display() or '',
         '#хештеги': lambda book: book.hashtags or '',
@@ -141,7 +142,13 @@ def _fill_ozon_sheet(ws, books, headers, field_mapping):
     for idx, book in enumerate(books, 1):
         ws.cell(row=current_row, column=1).value = idx
         for header_name, col_num in headers.items():
-            mapper = field_mapping.get(header_name) or field_mapping.get(header_name.rstrip('*'))
+            #mapper = field_mapping.get(header_name) or field_mapping.get(header_name.rstrip('*'))
+            base_name = header_name.rstrip('*').strip()
+            mapper = (
+                field_mapping.get(header_name)
+                or field_mapping.get(base_name)
+                or next((v for k, v in field_mapping.items() if k.rstrip('*').strip() == base_name), None)
+            )
             if mapper:
                 try:
                     value = mapper(book)

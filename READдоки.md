@@ -1,4 +1,6 @@
-# в базе данных на сервере 287244 книг
+# в базе данных на сервере 323398 книг
+
+https://qrco.de/bgwKXp
 
 ## важно важно важно
 
@@ -126,7 +128,7 @@ sudo systemctl restart gunicorn
 
 ## добавление книг Либекс на сервер
 
-cat /Users/rustamismagilov/Desktop/ready/JSONSS/30000_libex.json | ssh semen@v3144166.hosted-by-vdsina.ru "cd /home/semen/ready && source venv/bin/activate && python import_books.py --stdin"
+cat /Users/rustamismagilov/Desktop/ready/JSONSS/43000_libex.json | ssh semen@v3144166.hosted-by-vdsina.ru "cd /home/semen/ready && source venv/bin/activate && python import_books.py --stdin"
 
 ## миграции
 
