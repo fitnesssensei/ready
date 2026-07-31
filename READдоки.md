@@ -70,6 +70,7 @@ python manage.py collectstatic --noinput
 
 sudo systemctl restart gunicorn
 
+
 ## Всё одной строкой (с локальной машины)
 
 ## Пуш на GitHub
@@ -161,6 +162,11 @@ python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 sudo systemctl restart gunicorn
 
+# внес изменения прямо на сервере 
+git add admin_panel/views.py
+git commit -m "тнвэд добавлен в шаблон"
+git push origin production
+
 ## перенос Несколько коммитов подряд — merge
 Когда вы в main накопили несколько изменений и хотите перенести их все разом в production:
 На сервере:
@@ -180,3 +186,5 @@ python manage.py collectstatic --noinput
 sudo systemctl restart gunicorn
 
 ## ⚠️ Нюанс: merge притянет все коммиты из main, включая те, которые вы в прошлый раз не захотели деплоить. Если вы их уже откатили в main через git revert — то при merge приедет и реверт, и сами изменения (они скомпенсируют друг друга).
+
+ 2c66ff9 (множественный выбор Автор и Издательство)

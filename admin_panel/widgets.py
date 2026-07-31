@@ -5,6 +5,36 @@ from django.template.loader import render_to_string
 from django.utils.safestring import mark_safe
 
 
+class TagInputWidget(forms.TextInput):
+    """
+    Виджет для ввода нескольких значений в поле CharField.
+    Отображает теги (plip-элементы) с возможностью добавления/удаления.
+    Значения хранятся через разделитель "; " (точка с запятой + пробел).
+
+    Поддерживает:
+    - Аutocomplete через search_field_view
+    - Клавиатурную навигацию (Enter, Backspace, стрелки)
+    - Мобильные устройства
+    - Удаление тегов по X или Backspace
+    """
+
+    class Media:
+        css = {
+            'all': ('admin_panel/css/tag_input.css',)
+        }
+        js = ('admin_panel/js/tag_input.js',)
+
+    def __init__(self, attrs=None):
+        default_attrs = {
+            'class': 'vTagInput',
+            'data-delimiter': '; ',
+            'placeholder': 'Введите значение и нажмите Enter',
+        }
+        if attrs:
+            default_attrs.update(attrs)
+        super().__init__(default_attrs)
+
+
 class MultipleImageWidget(forms.Widget):
     """
     Виджет для загрузки нескольких фотографий к книге.

@@ -6,7 +6,8 @@
 <script>
 (function() {
     var fieldSearchUrl = "{{ search_field_url|escapejs }}";
-    var autocompleteFields = ['title', 'author', 'author_oblozh', 'publisher', 'series', 'illustrator', 'translator'];
+    window.__fieldSearchUrl = fieldSearchUrl;
+    var autocompleteFields = ['title', 'author_oblozh', 'series', 'illustrator', 'translator'];
     var debounceTimers = {};
     var activeDropdown = null;
     var allDropdowns = [];
@@ -304,6 +305,10 @@
             el.checked = !!value;
         } else {
             el.value = value == null ? '' : value;
+            // Уведомляем tag-input об изменении значения
+            if (el.classList.contains('vTagInput')) {
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            }
             // Если используется Select2 — обновить его визуально
             try {
                 if (typeof django !== 'undefined' && django.jQuery) {
