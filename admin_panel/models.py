@@ -117,7 +117,8 @@ class Book(models.Model):
 
     GENRE = [
         ('antic', 'Античная литература'),
-        ('artbook', 'Артбук'),        
+        ('artbook', 'Артбук'), 
+        ('astrolog', 'Астрология'),   
         ('business', 'Бизнес'),
         ('biography', 'Биография'),
         ('boevic', 'Боевик'),
@@ -214,7 +215,17 @@ class Book(models.Model):
         ('english', 'Английский'),
         ('french', 'Французский'),
         ('german', 'Немецкий'),
-
+        ('italian', 'Итальянский'), 
+        ('spanish', 'Испанский'),
+        ('turkish', 'Турецкий'),
+        ('chinese', 'Китайский'),
+        ('korean', 'Корейский'),
+        ('greek', 'Греческий'),
+        ('portuguese', 'Португальский'),
+        ('arabic', 'Арабский'),
+        ('japanese', 'Японский'),
+        ('vietnamese', 'Вьетнамский'),
+        ('thai', 'Тайский'),
     ]
 
     CONDITION_CHOICES = [
