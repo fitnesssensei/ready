@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('admin_panel', '0089_alter_book_paper_type'),
+        ('admin_panel', '0087_alter_book_paper_type'),
     ]
 
     operations = [

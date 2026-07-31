@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('admin_panel', '0090_alter_book_language'),
+        ('admin_panel', '0088_alter_book_language'),
     ]
 
     operations = [
