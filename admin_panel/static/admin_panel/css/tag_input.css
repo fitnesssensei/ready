@@ -1,0 +1,202 @@
+/* ============================================================
+   TagInputWidget — теговый input для множественных значений
+   ============================================================ */
+
+.tag-input-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    min-height: 38px;
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    cursor: text;
+    position: relative;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease;
+}
+
+.tag-input-container:focus-within {
+    border-color: #1a73e8;
+    box-shadow: 0 0 0 1px rgba(26, 115, 232, 0.2);
+}
+
+.tag-input-container .tag-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px 2px 10px;
+    background: #e8f0fe;
+    border: 1px solid #c6d9f7;
+    border-radius: 16px;
+    font-size: 13px;
+    line-height: 22px;
+    color: #1a1a1a;
+    white-space: nowrap;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: none;
+    -webkit-user-select: none;
+    min-height: 28px;
+    animation: tag-appear 0.15s ease;
+}
+
+@keyframes tag-appear {
+    from { transform: scale(0.85); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+}
+
+.tag-input-container .tag-item .tag-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    border: none;
+    background: transparent;
+    color: #5f6368;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0;
+    transition: background 0.15s, color 0.15s;
+    touch-action: manipulation;
+}
+
+.tag-input-container .tag-item .tag-remove:hover,
+.tag-input-container .tag-item .tag-remove:focus {
+    background: #d2e3fc;
+    color: #1a1a1a;
+    outline: none;
+}
+
+.tag-input-container .tag-item .tag-remove:active {
+    background: #b8d4f8;
+}
+
+.tag-input-container .tag-input-field {
+    flex: 1;
+    min-width: 80px;
+    border: none;
+    outline: none;
+    font-size: 13px;
+    padding: 3px 4px;
+    background: transparent;
+    line-height: 22px;
+    min-height: 26px;
+}
+
+.tag-input-container .tag-input-field::placeholder {
+    color: #999;
+    font-size: 13px;
+}
+
+/* Выпадающий список подсказок */
+.tag-input-dropdown {
+    position: absolute;
+    z-index: 99999;
+    display: none;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 200px;
+    left: -1px;
+    right: -1px;
+    top: 100%;
+    margin-top: 2px;
+}
+
+.tag-input-dropdown .dropdown-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    border-bottom: 1px solid #eee;
+    transition: background 0.1s;
+    touch-action: manipulation;
+    min-height: 40px; /* для мобильных */
+    display: flex;
+    align-items: center;
+}
+
+.tag-input-dropdown .dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.tag-input-dropdown .dropdown-item:hover,
+.tag-input-dropdown .dropdown-item.active {
+    background: #e8f4ff;
+}
+
+.tag-input-dropdown .dropdown-item:active {
+    background: #d0e8ff;
+}
+
+.tag-input-dropdown .dropdown-empty {
+    padding: 12px;
+    color: #888;
+    font-size: 13px;
+    text-align: center;
+}
+
+/* Состояние ошибки */
+.tag-input-container.has-error {
+    border-color: #d93025;
+}
+
+.tag-input-container.has-error:focus-within {
+    box-shadow: 0 0 0 1px rgba(217, 48, 37, 0.2);
+}
+
+/* Read-only / disabled */
+.tag-input-container.is-readonly {
+    background: #f5f5f5;
+    cursor: default;
+}
+
+.tag-input-container.is-readonly .tag-input-field {
+    display: none;
+}
+
+.tag-input-container.is-readonly .tag-remove {
+    display: none;
+}
+
+/* Адаптация для мобильных */
+@media (max-width: 768px) {
+    .tag-input-container {
+        min-height: 44px;
+        padding: 6px 8px;
+    }
+
+    .tag-input-container .tag-item {
+        font-size: 14px;
+        padding: 4px 8px 4px 12px;
+        min-height: 32px;
+    }
+
+    .tag-input-container .tag-item .tag-remove {
+        width: 24px;
+        height: 24px;
+        min-width: 24px;
+        font-size: 18px;
+    }
+
+    .tag-input-container .tag-input-field {
+        font-size: 14px;
+        min-height: 30px;
+    }
+
+    .tag-input-dropdown .dropdown-item {
+        padding: 12px 14px;
+        font-size: 14px;
+        min-height: 44px;
+    }
+}

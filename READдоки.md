@@ -64,6 +64,7 @@ python manage.py collectstatic --noinput
 
 sudo systemctl restart gunicorn
 
+
 ## Всё одной строкой (с локальной машины)
 
 ## Пуш на GitHub
@@ -105,4 +106,47 @@ sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book
 
 ## ip servera  
 
+
 178.20.41.120
+
+## перенести Один конкретный коммит из Гитхаб в продакшн — cherry-pick
+-Когда вы в main сделали один фикс и хотите перенести только его:
+
+# Найти хеш коммита в main (локально на Mac)
+git log --oneline -10
+
+# На сервере
+cd /home/semen/ready
+git fetch origin
+git checkout production
+git cherry-pick <хеш-коммита>
+source venv/bin/activate
+python manage.py migrate --noinput
+python manage.py collectstatic --noinput
+sudo systemctl restart gunicorn
+
+# внес изменения прямо на сервере 
+git add admin_panel/views.py
+git commit -m "тнвэд добавлен в шаблон"
+git push origin production
+
+## перенос Несколько коммитов подряд — merge
+Когда вы в main накопили несколько изменений и хотите перенести их все разом в production:
+На сервере:
+cd /home/semen/ready
+git fetch origin
+
+## Смержить main в production (приедут все новые коммиты из main)
+git checkout production
+git merge origin/main
+
+## Если возник конфликт — исправить и продолжить
+git add .
+git merge --continue
+source venv/bin/activate
+python manage.py migrate --noinput
+python manage.py collectstatic --noinput
+sudo systemctl restart gunicorn
+
+## ⚠️ Нюанс: merge притянет все коммиты из main, включая те, которые вы в прошлый раз не захотели деплоить. Если вы их уже откатили в main через git revert — то при merge приедет и реверт, и сами изменения (они скомпенсируют друг друга).
+>>>>>>> 68ddf4b (множественный выбор Автор и Издательство)

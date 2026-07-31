@@ -12,7 +12,7 @@ from django.urls import path, reverse
 from .models import Book, Category, EksmoBook, ManualBook, OzonTemplate
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin  # ← для кастомной админки пользователей
 from django.contrib.auth.models import User  # ← стандартная модель пользователя
-from .widgets import MultipleImageWidget
+from .widgets import MultipleImageWidget, TagInputWidget
 
 logger = logging.getLogger(__name__)
 
@@ -263,6 +263,8 @@ class BaseBookAdmin(admin.ModelAdmin):
         if db_field.name == 'photos':
             kwargs['widget'] = MultipleImageWidget()
             kwargs['required'] = False
+        if db_field.name in ('author', 'publisher'):
+            kwargs['widget'] = TagInputWidget()
         return super().formfield_for_dbfield(db_field, **kwargs)
 
     def save_model(self, request, obj, form, change):
