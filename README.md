@@ -11,7 +11,7 @@
 
 ## 2. Технологический стек
 
-- **Backend:** Python, Django 5.1.4
+- **Backend:** Python, Django 5.2
 - **База данных:** PostgreSQL
 - **Админка:** Django Admin с кастомными шаблонами и действиями
 - **Excel:** `openpyxl`
@@ -22,7 +22,7 @@
 Основные зависимости указаны в `requirements.txt`:
 
 ```txt
-Django==5.1.4
+Django==5.2
 psycopg2-binary==2.9.10
 PyYAML==6.0.2
 python-decouple==3.8
@@ -674,18 +674,33 @@ Custom admin routes для ручных книг:
 - добавление choices для target_audience и age_restrictions
 Текущая актуальная схема описана в `admin_panel/models.py`; именно её следует считать источником правды.
 
+**Последние миграции:**
+
+| Миграция | Что делает |
+|----------|-----------|
+| `0087_alter_book_paper_type` | Расширение типов бумаги, добавлены: coatedMat, kartograf, vtorichka, vlaga, puhlaya, samokley, tipograf |
+| `0088_alter_book_language` | Расширение языков: добавлены korean, greek, portuguese, arabic, japanese, vietnamese, thai |
+| `0091_alter_book_genre` | Расширение жанров: добавлены astrolog, modern, young_adult, satirа, sovetsk и др. |
+
+**Важно:** если миграции 0087-0088 были применены на сервере, но их файлы отсутствуют в git (например, после force push), необходимо восстановить их из git-истории или создать заглушки. Подробнее — в разделе **15. Деплой → Восстановление потерянных миграций**.
+
 ---
 
 ## 15. Деплой
 
 В `доки.md` есть пример деплоя на VDS-сервер.
 
-### Локально
+### Ветки
+
+- **`main`** — основная ветка разработки
+- **`production`** — ветка, которая развёрнута на сервере. Деплоим только через `production`
+
+### Стандартный деплой (push без конфликтов)
 
 ```bash
-git add .
-git commit -m "описание изменений"
-git push origin main
+# Локально
+git checkout production
+git push origin production
 ```
 
 ### На сервере
@@ -693,12 +708,58 @@ git push origin main
 ```bash
 ssh semen@v3144166.hosted-by-vdsina.ru
 cd /home/semen/ready
-git pull origin main
+git fetch origin
+git checkout production
+git pull origin production
+# или: git reset --hard origin/production
 source venv/bin/activate
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 sudo systemctl restart gunicorn
 ```
+
+### Force push (когда ветки разошлись)
+
+Если локальная `production` и `origin/production` разошлись, и нужно заменить удалённую ветку локальной:
+
+```bash
+# Локально
+git checkout production
+git push origin production --force
+```
+
+⚠️ **Внимание:** force push удаляет коммиты, которые есть только на `origin/production`. Перед force push рекомендую создать бэкап-ветку:
+
+```bash
+git fetch origin production
+git branch backup-production-before-force origin/production
+```
+
+### Восстановление потерянных миграций
+
+Если после force push на сервере возникает ошибка:
+
+```
+django.db.migrations.exceptions.NodeNotFoundError: Migration admin_panel.XXXX_xxx dependencies
+reference nonexistent parent node ('admin_panel', 'XXXX_xxx')
+```
+
+Это значит, что в базе уже применены миграции, которых нет в коде (они были в удалённых коммитах). **Решение:**
+
+1. Узнать, какие миграции есть в базе, но отсутствуют в коде:
+   ```bash
+   python manage.py showmigrations admin_panel | grep -E "\[X\]" | tail -10
+   ```
+2. Найти потерянные миграции в git-истории:
+   ```bash
+   git log --all --oneline -- admin_panel/migrations/XXXX_xxx.py
+   ```
+3. Восстановить файлы миграций из git-истории:
+   ```bash
+   git show <commit>:admin_panel/migrations/XXXX_xxx.py > admin_panel/migrations/XXXX_xxx.py
+   ```
+4. Если оригинальные миграции недоступны — создать файлы-заглушки с правильным именем и зависимостями, но с пустыми/корректными `operations`. Они уже применены в БД, поэтому реальные операции не важны — главное, чтобы граф миграций сошёлся.
+5. Закоммитить восстановленные миграции, запушить, на сервере — `git pull` и `migrate`.
 
 ### Проверка количества книг с размерами на сервере
 
@@ -715,7 +776,7 @@ sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book
 2. **Демо-страницы `/shop/` не являются магазином.**  
    Они не выводят товары, заказы и клиентов из БД.
 3. **`dashboard.html` содержит устаревшую строку про Django 6.0.3.**  
-   В `requirements.txt` и проекте используется Django 5.1.4.
+   В проекте используется Django 5.2.
 4. **`import_books.py` — legacy-скрипт (source='eksmo').**  
    Более актуальный скрипт — `python import_eksmo_books.py`.
 5. **`import_ast.py` — импорт книг издательства АСТ (source='ast').**  
@@ -741,7 +802,11 @@ sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book
 
 11. **Экспорт в несколько шаблонов Ozon поддерживается.**это работает только в локалке !
    Если активно несколько шаблонов `OzonTemplate` с разными диапазонами `year_from`/`year_to`, функция `export_books_to_ozon_template` распределяет книги по шаблонам согласно году издания. При одном активном шаблоне возвращается `.xlsx`; при двух и более — ZIP-архив (`ozon_templates_export.zip`) со всеми сгенерированными файлами.
-12. **Множественные авторы и издательства.**  
+12. **Конфликт миграций при force push.**  
+    Если на сервере были созданы и применены миграции, которые не были закоммичены в git, а затем сделан force push ветки `production` — эти миграции пропадут из кода, но останутся в базе данных. Django выдаст ошибку `NodeNotFoundError`.  
+    **Решение:** восстановить файлы миграций из git-истории или создать файлы-заглушки с теми же именами и зависимостями. Подробнее — раздел **15. Деплой → Восстановление потерянных миграций**.
+
+13. **Множественные авторы и издательства.**  
     Поля `author` и `publisher` в форме добавления/редактирования книги используют кастомный виджет `TagInputWidget`, который позволяет вводить несколько значений.  
     - Для добавления — нажмите Enter (или выберите подсказку)
     - Для удаления — нажмите × на теге или Backspace в пустом поле
