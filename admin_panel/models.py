@@ -120,7 +120,8 @@ class Book(models.Model):
 
     GENRE = [
         ('antic', 'Античная литература'),
-        ('artbook', 'Артбук'),        
+        ('artbook', 'Артбук'), 
+        ('astrolog', 'Астрология'),   
         ('business', 'Бизнес'),
         ('biography', 'Биография'),
         ('boevic', 'Боевик'),
@@ -228,8 +229,6 @@ class Book(models.Model):
         ('japanese', 'Японский'),
         ('vietnamese', 'Вьетнамский'),
         ('thai', 'Тайский'),
-        
-
     ]
 
     CONDITION_CHOICES = [
