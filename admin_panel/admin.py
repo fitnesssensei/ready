@@ -201,7 +201,7 @@ class BaseBookAdmin(admin.ModelAdmin):
     change_form_template = 'admin_panel/change_form.html'
 
     # Действия, доступные для выбранных книг
-    actions = ['export_selected_to_ozon']  # 'export_selected_to_excel',  удалил экспорт в ЭКСЕЛЬ
+    actions = ['export_selected_to_ozon', 'export_to_avito']  # 'export_selected_to_excel',  удалил экспорт в ЭКСЕЛЬ
     
     # добавил - автокомплит для категории
     autocomplete_fields = ['category']  # добавил - автокомплит для категории
@@ -336,6 +336,21 @@ class BaseBookAdmin(admin.ModelAdmin):
 
     export_selected_to_ozon.short_description = "Экспортировать выбранные в шаблон Ozon"
 
+    def export_to_avito(self, request, queryset):
+        """
+        Action для экспорта выбранных книг в шаблон Avito.
+
+        Использует активный шаблон Avito из модели OzonTemplate (в имени файла/названии должно быть «avito»):
+        - Загружает активный шаблон Avito
+        - Заполняет его данными выбранных книг
+        - Возвращает готовый файл для загрузки на Avito
+        """
+        from .views import export_books_to_avito_template
+        request.avito_export_queryset = queryset
+        return export_books_to_avito_template(request)
+
+    export_to_avito.short_description = "Экспортировать выбранные в шаблон Avito"
+
     # def export_selected_ozon(self, request, queryset):
     #     from .views import export_ozon_yml
     #     request.ozon_export_queryset = queryset
@@ -431,6 +446,11 @@ class ManualBookAdmin(BaseBookAdmin):
                 self.admin_site.admin_view(self.eksmo_template_view),
                 name='admin_panel_manualbook_eksmo_template',
             ),
+            path(
+                'export-avito/',
+                self.admin_site.admin_view(self.avito_export_view),
+                name='admin_panel_manualbook_avito_export',
+            ),
         ]
         return custom + urls
 
@@ -448,6 +468,10 @@ class ManualBookAdmin(BaseBookAdmin):
     def add_view(self, request, form_url='', extra_context=None):
         extra_context = {**(extra_context or {}), **self._eksmo_admin_context()}
         return super().add_view(request, form_url, extra_context)
+
+    def avito_export_view(self, request):
+        from .views import export_books_to_avito_template
+        return export_books_to_avito_template(request)
 
     def search_eksmo_view(self, request):
         """
