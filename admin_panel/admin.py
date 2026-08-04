@@ -455,14 +455,14 @@ class ManualBookAdmin(BaseBookAdmin):
 
         Вызывается из JavaScript при вводе запроса в поле поиска
         на странице добавления книги в «Каталог — админка».
-        Возвращает JSON со списком найденных книг (id, title, author, isbn).
+        Возвращает JSON со списком найденных книг (id, title, author, isbn, publication_year, publisher).
         Поиск осуществляется по артикулу, названию и ISBN.
         """
         query = (request.GET.get('q') or '').strip()
         books = (
             _search_all_books(query)
             .order_by('title')
-            .values('id', 'title', 'author', 'isbn')[:EKSMO_SEARCH_LIMIT]
+            .values('id', 'title', 'author', 'isbn', 'publication_year', 'publisher')[:EKSMO_SEARCH_LIMIT]
         )
         return JsonResponse({'results': list(books)})
 
