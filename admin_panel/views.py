@@ -38,101 +38,6 @@ def _ozon_book_type_display(book: Book) -> str:
     return BOOK_TYPE_DISPLAY_MAPPING.get(book.book_type, 'Печатная книга')
 
 
-AVITO_BOOK_TYPE_MAPPING = {
-    'printed book': 'Книги',
-    'second': 'Second-hand книги',
-    'bookinist': 'Букинистика',
-    'print_on_demand': 'Печать по требованию',
-}
-
-
-def _avito_book_type(book: Book) -> str:
-    return AVITO_BOOK_TYPE_MAPPING.get(book.book_type, 'Книги')
-
-
-def _avito_condition(book: Book) -> str:
-    return 'Б/у'
-
-
-AVITO_GENRE_MAPPING = {
-    'detective': 'Детективы',
-    'fantastic': 'Фантастика',
-    'fantasy': 'Фэнтези',
-    'antic': 'Антиутопии',
-    'adventure': 'Приключения',
-    'classic': 'Классическая проза',
-    'modern': 'Современная проза',
-    'history': 'Историческая проза',
-    'romance': 'Любовная проза',
-    'drama': 'Пьесы и драматургия',
-    'poetry': 'Поэзия',
-    'epic_folklore': 'Фольклор и мифология',
-    'horror': 'Ужасы и триллеры',
-    'thriller': 'Ужасы и триллеры',
-    'boevic': 'Боевики',
-    'satire': 'Юмор',
-}
-
-
-def _avito_genre(book: Book) -> str:
-    return book.genre or ''
-
-
-def _avito_photos_links(book: Book) -> str:
-    if not book.photos:
-        return ''
-    return ' | '.join(f'{settings.MEDIA_BASE_URL}{photo}' for photo in book.photos)
-
-
-def _avito_photos_names(book: Book) -> str:
-    if not book.photos:
-        return ''
-    return ' | '.join(photo.split('/')[-1] for photo in book.photos)
-
-
-AVITO_FIELD_MAPPING = {
-    'уникальный идентификатор объявления': lambda book: book.sku or f'book_{book.id}' if book.id else '',
-    'начало размещения': lambda book: '',
-    'окончание размещения': lambda book: '',
-    'способ размещения': lambda book: '',
-    'услуга продвижения': lambda book: '',
-    'номер объявления на авито': lambda book: '',
-    'контактное лицо': lambda book: '',
-    'номер телефона': lambda book: '',
-    'адрес': lambda book: '',
-    'широта': lambda book: '',
-    'долгота': lambda book: '',
-    'идентификатор адреса': lambda book: '',
-    'название объявления': lambda book: (book.title or '')[:50],
-    'описание объявления': lambda book: (book.description or '')[:7500],
-    'ссылки на фото': _avito_photos_links,
-    'названия фото': _avito_photos_names,
-    'ссылка на видео': lambda book: '',
-    'способ связи': lambda book: 'По телефону и в сообщениях',
-    'настройка цены целевого действия': lambda book: '',
-    'настройка цены целевого действия: автоматическая': lambda book: '',
-    'настройка цены целевого действия: ручная': lambda book: '',
-    'категория': lambda book: 'Книги и журналы',
-    'интернет звонки': lambda book: '',
-    'устройства для приёма звонков': lambda book: '',
-    'способ доставки': lambda book: '',
-    'вес (для доставки)': lambda book: str(round(float(book.weight) / 1000, 3)) if book.weight else '',
-    'длина (для доставки)': lambda book: str(round(float(book.length) / 10, 1)) if book.length else '',
-    'высота (для доставки)': lambda book: str(round(float(book.height) / 10, 1)) if book.height else '',
-    'ширина (для доставки)': lambda book: str(round(float(book.width) / 10, 1)) if book.width else '',
-    'возвраты': lambda book: '',
-    'цена': lambda book: str(int(float(book.price))) if book.price else '',
-    'вид товара': lambda book: 'Книги',
-    'вид объявления': lambda book: 'Товар приобретен на продажу',
-    'состояние': _avito_condition,
-    'url видеофайла': lambda book: '',
-    'вид книги': lambda book: 'Художественная литература',
-    'жанр': _avito_genre,
-    'автор': lambda book: book.author or '',
-    'популярная серия': lambda book: book.series or '',
-}
-
-
 def _tnved_code(book: Book) -> str:
     return book.tnved_code or '4901100000 - Книги, брошюры, листовки и аналогичные печатные издания в виде отдельных листов, сфальцованные или несфальцованные'
 
@@ -304,69 +209,97 @@ def export_books_to_ozon_template(request):
         )
 
 
-def export_books_to_avito_template(request):
+def export_books_to_avito_xml(request):
     """
-    Экспорт выбранных книг в шаблон Avito.
-    Загружает активный шаблон Avito (по признаку в имени файла/названии) и заполняет
-    данными книг с использованием AVITO_FIELD_MAPPING.
+    Экспорт выбранных книг в XML для Avito.
+    Формирует XML-документ по схеме Avito с использованием ElementTree.
     Особенности:
-        - Использует лист «Объявления» вместо «Шаблон»
-        - Маппинг заголовков Avito через AVITO_FIELD_MAPPING
-        - Обработка ошибок аналогична Ozon-экспорту
+        - Обязательные поля заполняются автоматически
+        - Цена, вес, размеры приводятся к требуемому формату
+        - Фото формируются как <Image url="..."/>
+        - Обработка ошибок с логированием
     """
+    import xml.etree.ElementTree as ET
+    from xml.sax.saxutils import escape
+    from .avito_catalogs import AVITO_AUTHORS, AVITO_SERIES
+
+    AVITO_GENRE_MAPPING = {
+        'detective': 'Детективы',
+        'fantastic': 'Фантастика',
+        'fantasy': 'Фэнтези',
+        'antic': 'Антиутопии',
+        'adventure': 'Приключения',
+        'classic': 'Классическая проза',
+        'modern': 'Современная проза',
+        'history': 'Историческая проза',
+        'romance': 'Любовная проза',
+        'drama': 'Пьесы и драматургия',
+        'poetry': 'Поэзия',
+        'epic_folklore': 'Фольклор и мифология',
+        'horror': 'Ужасы и триллеры',
+        'thriller': 'Ужасы и триллеры',
+        'boevic': 'Боевики',
+        'satire': 'Юмор',
+    }
+
     if hasattr(request, 'avito_export_queryset'):
         books = request.avito_export_queryset
     else:
         books = Book.objects.select_related('category').all()
-    template = OzonTemplate.objects.filter(is_active=True, file__icontains='avito').first()
-    if not template:
-        return HttpResponse(
-            "Ошибка: Не найден активный шаблон Avito. Загрузите шаблон через админку (в имени файла/названии должно быть «avito»).",
-            content_type='text/plain; charset=utf-8',
-            status=400
-        )
-    template_path = os.path.join(settings.MEDIA_ROOT, template.file.name)
-    if not os.path.exists(template_path):
-        return HttpResponse(
-            f"Ошибка: Файл шаблона не найден: {template.file.name}",
-            content_type='text/plain; charset=utf-8',
-            status=404
-        )
     media_base_url = getattr(settings, 'MEDIA_BASE_URL', request.build_absolute_uri(settings.MEDIA_URL))
     try:
-        wb = load_workbook(template_path)
-        if 'Объявления' not in wb.sheetnames:
-            return HttpResponse(
-                "Ошибка: В шаблоне отсутствует лист «Объявления».",
-                content_type='text/plain; charset=utf-8',
-                status=400
-            )
-        ws = wb['Объявления']
-        # Определяем заголовки из 2-й строки
-        headers = []
-        for col in range(1, ws.max_column + 1):
-            cell_value = ws.cell(row=2, column=col).value
-            if cell_value:
-                header_clean = ' '.join(str(cell_value).replace('\n', ' ').split()).lower()
-                headers.append((col, header_clean))
-        # Заполняем данные
-        for row_num, book in enumerate(books, 3):
-            for col_num, header_clean in headers:
-                if header_clean in AVITO_FIELD_MAPPING:
-                    value = AVITO_FIELD_MAPPING[header_clean](book)
-                else:
-                    value = ''
-                ws.cell(row=row_num, column=col_num).value = value
-        response = HttpResponse(
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = 'attachment; filename="avito_export.xlsx"'
-        wb.save(response)
+        root = ET.Element('Ads', {
+            'formatVersion': '3',
+            'target': 'Avito.ru'
+        })
+        for book in books:
+            ad = ET.SubElement(root, 'Ad')
+            # Обязательные поля
+            sku = str(book.sku or f'book_{book.id}')
+            ET.SubElement(ad, 'Id').text = escape(sku[:100])
+            ET.SubElement(ad, 'Title').text = escape(str((book.title or '')[:50]))
+            ET.SubElement(ad, 'Description').text = escape(str((book.description or '')[:7500]))
+            ET.SubElement(ad, 'Price').text = str(int(float(book.price))) if book.price else '0'
+            ET.SubElement(ad, 'Category').text = escape('Книги и журналы')
+            ET.SubElement(ad, 'GoodsType').text = escape('Книги')
+            ET.SubElement(ad, 'AdType').text = escape('Товар приобретен на продажу')
+            ET.SubElement(ad, 'Condition').text = 'Б/у'
+            ET.SubElement(ad, 'BookType').text = escape('Художественная литература')
+            # Жанр (обязательный, используем маппинг или дефолт)
+            genre_value = AVITO_GENRE_MAPPING.get(book.genre, 'Детективы') if book.genre else 'Детективы'
+            ET.SubElement(ad, 'Genre').text = escape(genre_value)
+            # Автор и серия (только если есть в каталоге Avito)
+            if book.author and book.author in AVITO_AUTHORS:
+                ET.SubElement(ad, 'Author').text = escape(str(book.author))
+            if book.series and book.series in AVITO_SERIES:
+                ET.SubElement(ad, 'Series').text = escape(str(book.series))
+            # Адрес (обязателен, используем заглушку)
+            ET.SubElement(ad, 'Address').text = escape('Москва')
+            # Доставка (опционально)
+            delivery_el = ET.SubElement(ad, 'Delivery')
+            ET.SubElement(delivery_el, 'Option').text = 'Выключена'
+            # Фото
+            if book.photos:
+                images_el = ET.SubElement(ad, 'Images')
+                for photo in book.photos[:10]:
+                    ET.SubElement(images_el, 'Image', {'url': f'{media_base_url}{photo}'})
+            # Вес и размеры (в кг/см)
+            if book.weight:
+                ET.SubElement(ad, 'WeightForDelivery').text = str(round(float(book.weight) / 1000, 3))
+            if book.length:
+                ET.SubElement(ad, 'LengthForDelivery').text = str(round(float(book.length) / 10))
+            if book.width:
+                ET.SubElement(ad, 'WidthForDelivery').text = str(round(float(book.width) / 10))
+            if book.height:
+                ET.SubElement(ad, 'HeightForDelivery').text = str(round(float(book.height) / 10))
+        xml_data = ET.tostring(root, encoding='unicode', xml_declaration=True)
+        response = HttpResponse(xml_data, content_type='application/xml; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="avito_export.xml"'
         return response
     except Exception as e:
-        logger.error(f"Ошибка при экспорте в шаблон Avito: {e}")
+        logger.error(f"Ошибка при экспорте в XML Avito: {e}")
         return HttpResponse(
-            f"Ошибка при обработке шаблона: {str(e)}",
+            f"Ошибка при обработке XML: {str(e)}",
             content_type='text/plain; charset=utf-8',
             status=500
         )
