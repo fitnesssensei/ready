@@ -785,6 +785,32 @@ python manage.py collectstatic --noinput
 
 ---
 
-## 18. Краткое резюме
+## 18. Ветки и Git
+
+Репозиторий разделён на ветки по назначению. Рабочая (стабильная) ветка — `main`; ветки-фичи выносятся отдельно, чтобы не смешивать незавершённый код с рабочим.
+
+| Ветка | Содержимое | Статус |
+|---|---|---|
+| **`main`** | Рабочая ветка: экспорт в несколько шаблонов Ozon (вкл. ZIP-архив при ≥2 шаблонах), справочники `shablon/*.xml` | ✅ Стабильная, запушена в `origin` |
+| **`production`** | Совпадает с `origin/production` (состояние на сервере), без экспериментальных фич | ✅ Стабильная |
+| **`feature/avito-xml`** | Экспорт выбранных книг в XML для Avito (`export_books_to_avito_xml`, `admin_panel/avito_catalogs.py`) | ⚠️ WIP — **не работает** (см. раздел 8) |
+| **`feature/zip-export`** | Снапшот логики ZIP-экспорта (несколько активных шаблонов Ozon → `.zip`) | ✅ Рабочая, идентична `main` |
+
+Справочные XML для Avito (`shablon/autor.xml`, `shablon/siries.xml`, `shablon/avito.xml`) лежат на `main`/`feature/zip-export`, но **не** на `feature/avito-xml`. При доработке Avito-экспорта подтяните их в ветку фичи:
+
+```bash
+git checkout feature/avito-xml
+git merge main        # подтянуть shablon/*.xml
+```
+
+Публикация веток на GitHub:
+
+```bash
+git push -u origin main feature/avito-xml feature/zip-export
+```
+
+---
+
+## 19. Краткое резюме
 
 `ready` — это Django-админка для книжного магазина с упором на импорт каталога Эксмо, ручное управление товарами, загрузку фотографий и экспорт данных для Ozon. Основное рабочее место администратора — Django Admin. Основной источник товаров — модель `Book` с разделением по `source=manual` и `source=eksmo`. Для Ozon реализован безопасный офлайн-экспорт в Excel-шаблон, а прямой API пока отключён.
