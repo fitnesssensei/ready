@@ -38,6 +38,10 @@ def _ozon_book_type_display(book: Book) -> str:
     return BOOK_TYPE_DISPLAY_MAPPING.get(book.book_type, 'Печатная книга')
 
 
+def _tnved_code(book: Book) -> str:
+    return book.tnved_code or '4901100000 - Книги, брошюры, листовки и аналогичные печатные издания в виде отдельных листов, сфальцованные или несфальцованные'
+
+
 def _format_dimensions_cm(book: Book) -> str:
     if book.length and book.width and book.height:
         try:
@@ -112,7 +116,7 @@ def export_books_to_ozon_template(request):
         for col_num in range(1, ws.max_column + 1):
             cell_value = ws.cell(row=header_row, column=col_num).value
             if cell_value:
-                header_clean = str(cell_value).replace('\n', ' ').strip().lower()
+                header_clean = ' '.join(str(cell_value).replace('\n', ' ').split()).lower()
                 headers[header_clean] = col_num
         logger.info(f'Ozon template headers: {list(headers.keys())}')
         isbn_cols = {k: v for k, v in headers.items() if 'isbn' in k.lower()}
@@ -149,10 +153,12 @@ def export_books_to_ozon_template(request):
             'тип книги': lambda book: _ozon_book_type(book),
             'тип*': lambda book: 'Печатная книга',
             'бренд*': lambda book: book.publisher or 'Нет бренда',
-            'тн вэд коды еаэс': lambda book: book.tnved_code or '',
-            'тн вэд коды еаэс*': lambda book: book.tnved_code or '',
-            'тнвэд': lambda book: book.tnved_code or '',
-            'тнвэд*': lambda book: book.tnved_code or '',
+            'тн вэд коды еаэс': _tnved_code,
+            'тн вэд коды еаэс*': _tnved_code,
+            'тнвэд': _tnved_code,
+            'тнвэд*': _tnved_code,
+            'код тн вэд': _tnved_code,
+            'код тн вэд*': _tnved_code,
             'направление*': lambda book: book.get_genre_display() or '',
             'целевая аудитория литературы': lambda book: book.get_target_audience_display() or '',
             '#хештеги': lambda book: book.hashtags or '',
