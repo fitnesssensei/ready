@@ -282,9 +282,12 @@
             var btnEl = document.createElement('button');
             btnEl.type = 'button';
             btnEl.className = 'eksmo-search-item';
+            var parts = [escapeHtml(item.author || '')];
+            if (item.isbn) { parts.push('ISBN ' + escapeHtml(item.isbn)); }
+            if (item.publication_year) { parts.push(escapeHtml(String(item.publication_year))); }
+            if (item.publisher) { parts.push(escapeHtml(item.publisher)); }
             btnEl.innerHTML = '<strong>' + escapeHtml(item.title) + '</strong>' +
-                '<span>' + escapeHtml(item.author || '') +
-                (item.isbn ? ' · ISBN ' + escapeHtml(item.isbn) : '') + '</span>';
+                '<span>' + parts.join(' · ') + '</span>';
             btnEl.addEventListener('click', function() { applyTemplate(item.id); });
             resultsEl.appendChild(btnEl);
         });
