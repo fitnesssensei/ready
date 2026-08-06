@@ -1,12 +1,11 @@
-# в базе данных на сервере 334613 книг
 
-## база ЭКСМО заняла 55 часов
+## важно важно важно
+
+меняй код только через python
 
 ## zapusk neyrosety
 
 cline
-                                                            # or
-                                                            cline "your task"
 
 ## объединение всех JSON в один
 
@@ -125,6 +124,38 @@ python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 sudo systemctl restart gunicorn
 
+## полный шаблон деплоя:
+
+cd /home/semen/ready
+git fetch origin
+git checkout production
+git cherry-pick <хеш-коммита>
+source venv/bin/activate
+python manage.py migrate --noinput
+python manage.py collectstatic --noinput
+sudo systemctl restart gunicorn
+
+1. Подтянуть изменения с GitHub
+git fetch origin
+
+2. Переключиться на продовую ветку
+git checkout production
+
+3. Перенести нужный коммит из main
+git cherry-pick <хеш-коммита>
+
+4. Активировать виртуальное окружение
+source venv/bin/activate
+
+5. Применить миграции (если были изменения в моделях БД)
+python manage.py migrate --noinput
+
+6. Собрать статику (если менялись CSS/JS/картинки)
+python manage.py collectstatic --noinput
+
+7. Перезапустить Gunicorn
+sudo systemctl restart gunicorn
+
 # внес изменения прямо на сервере 
 git add admin_panel/views.py
 git commit -m "тнвэд добавлен в шаблон"
@@ -149,4 +180,3 @@ python manage.py collectstatic --noinput
 sudo systemctl restart gunicorn
 
 ## ⚠️ Нюанс: merge притянет все коммиты из main, включая те, которые вы в прошлый раз не захотели деплоить. Если вы их уже откатили в main через git revert — то при merge приедет и реверт, и сами изменения (они скомпенсируют друг друга).
->>>>>>> 68ddf4b (множественный выбор Автор и Издательство)
