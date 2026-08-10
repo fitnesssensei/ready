@@ -15,15 +15,12 @@ python merge_json.py --input JSON --output merged_books.json
 
 ### keyGitHub - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDB9zQW/iaf6p+Uvx11CZaCYE4UH7qgGOejy750Lz1bE semen@v3144166-ready-deploy
 
-### Всего книг в базе : 12825
 
 Рекомендации для продакшена
 
 ### 🚀 Команды для пуша и деплоя
 
 ## Важно: перед git push убедись, что большие файлы (JSON > 100 MB) не попадают в коммит — они уже в .gitignore под путями
-
-vBaze/12825_libex.json
 
 ### Локально — закоммитить и запушить на GitHub
 
