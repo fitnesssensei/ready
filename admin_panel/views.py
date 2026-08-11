@@ -132,7 +132,7 @@ def _ozon_headers_and_mapping(ws, media_base_url):
         'вес товара, г': lambda book: int(float(book.weight)) if book.weight else '',
         'сохранность книги': lambda book: book.get_condition_display() or '',
         'возрастные ограничения': lambda book: book.get_age_restrictions_display() or '',
-        'признак 18+': lambda book: book.is_adult,
+        'признак 18+': lambda book: 'Да' if book.is_adult == 'yes' else 'Нет',
     }
     return headers, field_mapping
 

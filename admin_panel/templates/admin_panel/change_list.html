@@ -1,5 +1,5 @@
 {% extends "admin/change_list.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block extrahead %}
 {{ block.super }}
@@ -12,6 +12,46 @@
     }
     .result-list th {
         font-weight: bold !important;
+    }
+    /* Возвращаем фильтры в правую панель */
+    #changelist {
+        display: flex !important;
+        align-items: flex-start !important;
+        justify-content: space-between !important;
+        gap: 20px;
+    }
+
+    #changelist .changelist-form-container {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        order: 0 !important;
+    }
+
+    #changelist-filter {
+        flex: 0 0 240px !important;
+        order: 1 !important;
+        position: sticky !important;
+        top: 10px !important;
+        align-self: flex-start !important;
+    }
+
+    /* На мобильных устройствах фильтры под контентом */
+    @media (max-width: 1024px) {
+        #changelist {
+            flex-direction: column !important;
+        }
+
+        #changelist .changelist-form-container {
+            order: 0 !important;
+        }
+
+        #changelist-filter {
+            order: 1 !important;
+            flex: 0 0 auto !important;
+            width: 100% !important;
+            margin-top: 20px !important;
+            position: static !important;
+        }
     }
 </style>
 {% endblock %}
