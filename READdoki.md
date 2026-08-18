@@ -1,3 +1,4 @@
+нужно вынести многие параметры в константы 
 
 ## важно важно важно
 
@@ -83,7 +84,7 @@ sudo systemctl restart gunicorn
 
 ## добавление книг АСТ на сервер
 
-(venv) rustamismagilov@MacBook-Pro-Rustam ready % cat /Users/rustamismagilov/Desktop/ready/vBaze/dnevnikiAST.json | ssh semen@v3144166.hosted-by-vdsina.ru "cd /home/semen/ready && source venv/bin/activate && python import_ast.py --stdin"
+cat /Users/rustamismagilov/Desktop/ready/JSONSS/13664del.json | ssh semen@v3144166.hosted-by-vdsina.ru "cd /home/semen/ready && source venv/bin/activate && python import_ast.py --stdin"
 
 ## добавление книг Либекс на сервер
 
