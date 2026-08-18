@@ -167,6 +167,21 @@ python manage.py runserver
 - `publication_date`, `created_at`, `updated_at`
 - `created_by` — кто создал книгу (ForeignKey на User, заполняется автоматически)
 
+### Константы модели Book (`admin_panel/constants.py`)
+
+Списки `choices` и строковые дефолты модели `Book` вынесены из `admin_panel/models.py` в отдельный модуль `admin_panel/constants.py`, чтобы модель не содержала данных.
+
+Что вынесено:
+- списки `choices`: `SOURCE_CHOICES`, `COVER_TYPES`, `VAT_RATES`, `GENRE`, `TARGET_AUDIENCE`, `AGE_RESTRICTIONS`, `IS_ADULT`, `LANGUAGE_CHOICES`, `CONDITION_CHOICES`, `BOOK_TYPE`, `PAPER_TYPES`;
+- строковые источники: `SOURCE_MANUAL`, `SOURCE_EKSMO`, `SOURCE_AST`;
+- строковые дефолты полей: `DEFAULT_SOURCE`, `DEFAULT_GENRE`, `DEFAULT_COVER_TYPE`, `DEFAULT_BOOK_TYPE`, `DEFAULT_PAPER_TYPE`, `DEFAULT_LANGUAGE`, `DEFAULT_CONDITION`, `DEFAULT_IS_ADULT`, `DEFAULT_AGE_RESTRICTION`, `DEFAULT_VAT_RATE`, `DEFAULT_TNVED_CODE`.
+
+В классе `Book` значения ссылаются на константы модуля. Для обратной совместимости `Book.SOURCE_MANUAL / SOURCE_EKSMO / SOURCE_AST` сохранены как атрибуты-ссылки — код (`admin.py`, `import_*.py`, management-команды), использующий `Book.SOURCE_*`, работает без изменений. Миграции не потребовались (наборы значений не менялись).
+
+### ⚠️ Замечание по `admin.py` (`OzonTemplateAdmin`)
+
+При добавлении админки VK (`VkIntegrationAdmin`) в `admin_panel/admin.py` у `OzonTemplateAdmin` были удалены `readonly_fields = ('uploaded_at',)` и блок `fieldsets` (поля `name, file, description, is_active, year_from, year_to`). Код намеренно **не восстанавливали** — это требует проверки/доработки при следующем изменении VK- или Ozon-интеграции.
+
 ### Proxy-модели
 
 - `ManualBook(Book)` — ручные книги магазина.

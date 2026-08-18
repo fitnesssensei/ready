@@ -3,6 +3,8 @@ from random import choice
 from webbrowser import get
 from django.db import models
 from django.conf import settings  # ← для ссылки на модель User (AUTH_USER_MODEL)
+from . import constants
+
 
 class OzonTemplate(models.Model):
     """
@@ -81,196 +83,38 @@ def normalize_isbn(value):
     return ''.join(c for c in (value or '') if c.isdigit())
 
 class Book(models.Model):
-    SOURCE_MANUAL = 'manual'
-    SOURCE_EKSMO = 'eksmo'
-    SOURCE_AST = 'ast'
+    # Обратная совместимость: атрибуты Book.SOURCE_* ссылаются на константы
+    SOURCE_MANUAL = constants.SOURCE_MANUAL
+    SOURCE_EKSMO = constants.SOURCE_EKSMO
+    SOURCE_AST = constants.SOURCE_AST
 
-    SOURCE_CHOICES = [
-        (SOURCE_MANUAL, 'Админка'),
-        (SOURCE_EKSMO, 'Импорт Эксмо'),
-        (SOURCE_AST, 'Импорт АСТ'),
+    SOURCE_CHOICES = constants.SOURCE_CHOICES
 
-    ]
+    COVER_TYPES = constants.COVER_TYPES
 
-    COVER_TYPES = [
-        ('hard', 'Твердый переплет'),
-        ('soft', 'Мягкая обложка'),
-        ('softSuper', 'Мягкая обложка, суперобложка'),
-        ('klapan', 'Обложка с клапанами'),
-        ('klapanSuper', 'Обложка с клапанами, суперобложка'),
-        ('poluKozha', 'Полукожаный переплет'),
-        ('hardSuper', 'Твердый переплет, суперобложка'),
-        ('textile', 'Тканевый переплет'),
-        ('textileSuper', 'Тканевый переплет, суперобложка'),
-        ('block', 'Блок для переплета'),
-        ('Bumvinyl', 'Бумвинил'),
-        ('integral', 'Интегральный переплет'),
-        ('integralSuper', 'Интегральный переплет, суперобложка'),
-        ('leather', 'Кожаный переплет'),
-        ('sheet', 'Листовое издание'),
-        ('copper', 'Медный переплет'),
+    VAT_RATES = constants.VAT_RATES
 
-    ]
+    GENRE = constants.GENRE
+    TARGET_AUDIENCE = constants.TARGET_AUDIENCE
 
-    VAT_RATES = [
-        ('0', 'Без НДС'),
-        ('10', '10%'),
-        ('20', '20%'),
-    ]
+    AGE_RESTRICTIONS = constants.AGE_RESTRICTIONS
 
-    GENRE = [
-        ('antic', 'Античная литература'),
-        ('artbook', 'Артбук'), 
-        ('astrolog', 'Астрология'),   
-        ('business', 'Бизнес'),
-        ('biography', 'Биография'),
-        ('boevic', 'Боевик'),
-        ('beauty_health', 'Красота и здоровье'),
-        ('classic', 'Классики литературы'),
-        ('comic', 'Комикс'),
-        ('cooking', 'Кулинария'),
-        ('drama', 'Драматургия'),
-        ('detective', 'Детектив'),
-        ('military', 'Военное дело'),
-        ('graphic_novel', 'Графический роман'),
-        ('home_garden', 'Дом и сад'),
-        ('early_childhood', 'Дошкольное развитие детей'),
-        ('fable', 'Басни'),
-        ('information_technology', 'Информационные технологии'),
-        ('art_culture', 'Искусство и культура'),
-        ('history', 'История'),
-        ('romance', 'Любовный роман'),
-        ('manga', 'Манга'),
-        ('manhwa', 'Манхва'),
-        ('manhua', 'Маньхуа'),
-        ('medicine', 'Медицина'),
-        ('memoirs', 'Мемуары'),
-        ('mystery', 'Мистика'),
-        ('modern', 'Современная литература'),
-        ('young_adult', 'Молодежная и подростковая литература (Young Adult)'),
-        ('scientific', 'Научная и научно-популярная литература'),
-        ('satire', 'Сатира, юмор'),
-        ('sovetsk', 'Советские писатели'),
-        ('pedagogy', 'Педагогика и логопедия'),
-        ('politics', 'Политика и политология'),
-        ('university', 'Пособие для вузов, ссузов, аспирантуры'),
-        ('foreign_language', 'Пособие для изучения иностранных языков'),
-        ('exam_prepEGE', 'Пособие для подготовки к ЕГЭ'),
-        ('exam_prepOGE', 'Пособие для подготовки к ОГЭ'),
-        ('exam_prepVPR', 'Пособие для подготовки к итоговому тестированию и ВПР'),
-        ('school', 'Пособие для школы'),
-        ('poetry', 'Поэзия'),
-        ('law', 'Право и юриспруденция'),
-        ('adventure', 'Приключения'),
-        ('prose', 'Проза'),
-        ('psychology', 'Психология'),
-        ('journalism', 'Публицистика'),
-        ('travel', 'Путешествия и туризм'),
-        ('ranobe', 'Ранобэ'),
-        ('religion', 'Религия'),
-        ('self_development', 'Саморазвитие'),
-        ('dictionary', 'Словарь'),
-        ('sports', 'Спорт'),
-        ('thriller', 'Триллер'),
-        ('horror', 'Ужасы'),
-        ('fantastic', 'Фантастика'),
-        ('fantasy', 'Фэнтези'),
-        ('hobby_creativity', 'Хобби и творчество'),
-        ('hudozhka', 'Художественная'),
-        ('esoterica_spirituality', 'Эзотерика и духовные практики'),
-        ('economics_finance', 'Экономика и финансы'),
-        ('encyclopedia_reference', 'Энциклопедия, справочник'),
-        ('epic_folklore', 'Эпос и фольклор'),
+    IS_ADULT = constants.IS_ADULT
 
-    ]
-    
-    TARGET_AUDIENCE = [
-        ('for adults', 'Для взрослых'),
-        ('for children', 'Для детей'),
+    LANGUAGE_CHOICES = constants.LANGUAGE_CHOICES
 
-    ]
+    CONDITION_CHOICES = constants.CONDITION_CHOICES
 
-    AGE_RESTRICTIONS = [
-        ('18+', '18+'),
-        ('16+', '16+'),
-        ('12+', '12+'),
-        ('10+', '10+'),
-        ('9+', '9+'),
-        ('8+', '8+'),
-        ('7+', '7+'),
-        ('6+', '6+'),
-        ('5+', '5+'),
-        ('4+', '4+'),
-        ('3+', '3+'),
-        ('2+', '2+'),
-        ('1+', '1+'),
-        ('0+', '0+'),
-    ]
-
-    IS_ADULT = [
-        ('yes', 'Да'),
-        ('no', 'Нет')
-    ]
-
-    LANGUAGE_CHOICES = [
-        ('russian', 'Русский'),
-        ('english', 'Английский'),
-        ('french', 'Французский'),
-        ('german', 'Немецкий'),
-        ('italian', 'Итальянский'),
-        ('spanish', 'Испанский'),
-        ('turkish', 'Турецкий'),
-        ('chinese', 'Китайский'),
-        ('korean', 'Корейский'),
-        ('greek', 'Греческий'),
-        ('portuguese', 'Португальский'),
-        ('arabic', 'Арабский'),
-        ('japanese', 'Японский'),
-        ('vietnamese', 'Вьетнамский'),
-        ('thai', 'Тайский'),
-    ]
-
-    CONDITION_CHOICES = [
-        ('excellent', 'Отличная'),
-        ('good', 'Хорошая'),
-        ('veriGood', 'Очень хорошая'),
-        ('satisfactorily', 'Удовлетворительная'),
-        ('bad', 'Плохая'),
-
-    ]
-
-    BOOK_TYPE = [
-        ('printed book', 'Печатная книга'),
-        ('second', 'Second-hand книга'),
-        ('bookinist', 'Букинистика'),
-        ('print_on_demand', 'Печать по требованию'),
-    ]
-
+    BOOK_TYPE = constants.BOOK_TYPE
 
     # строка "тип бумаги"
-    PAPER_TYPES = [
-        ('offset', 'Офсетная'),
-        ('art', 'Художественная'),
-        ('newsprint', 'Газетная'),
-        ('recycled', 'Макулатурная'),
-        ('kremovaya', 'Кремовая'),
-        ('design', 'Дизайнерская'),
-        ('karton', 'Картон'),
-        ('coated', 'Мелованная глянцевая'),
-        ('coatedMat', 'Мелованная матовая'),
-        ('kartograf', 'Картографическая'),
-        ('vtorichka', 'Вторичной переработки'),
-        ('vlaga', 'Влагостойкая'),
-        ('puhlaya', 'Пухлая'),
-        ('samokley', 'Самоклеющаяся'),
-        ('tipograf', 'Типографская'),
-    ]
+    PAPER_TYPES = constants.PAPER_TYPES
 
     title = models.CharField(max_length=200, verbose_name="Название", default="")
     source = models.CharField(
         max_length=10,
         choices=SOURCE_CHOICES,
-        default=SOURCE_MANUAL,
+        default=constants.DEFAULT_SOURCE,
         verbose_name="Источник",
         db_index=True,
     )
@@ -286,27 +130,27 @@ class Book(models.Model):
     author_oblozh = models.CharField(max_length=100, verbose_name="Автор на обложке", blank=True, null=True)
     illustrator = models.CharField(max_length=100, verbose_name="Иллюстратор", blank=True, null=True)
     translator = models.CharField(max_length=100, verbose_name="Переводчик", blank=True, null=True)
-    genre = models.CharField(max_length=100, choices=GENRE, verbose_name="Направление", default='fantastic', blank=True)
+    genre = models.CharField(max_length=100, choices=GENRE, verbose_name="Направление", default=constants.DEFAULT_GENRE, blank=True)
     target_audience = models.CharField(max_length=100, choices=TARGET_AUDIENCE, verbose_name="Целевая аудитория", default='or children', blank=True)  # целевая аудитория 
-    age_restrictions = models.CharField(max_length=100, choices=AGE_RESTRICTIONS, verbose_name="Возрастные ограничения", default='18+', blank=True)  # возраст огран  
-    is_adult = models.CharField(choices=IS_ADULT, verbose_name="Признак 18+", default="yes", blank=True )
+    age_restrictions = models.CharField(max_length=100, choices=AGE_RESTRICTIONS, verbose_name="Возрастные ограничения", default=constants.DEFAULT_AGE_RESTRICTION, blank=True)  # возраст огран  
+    is_adult = models.CharField(choices=IS_ADULT, verbose_name="Признак 18+", default=constants.DEFAULT_IS_ADULT, blank=True )
     publisher = models.CharField(max_length=100, verbose_name="Издательство", default="")
     series = models.CharField(max_length=200, verbose_name="Серия", blank=True, null=True)
     publication_year = models.PositiveIntegerField(verbose_name="Год издания", blank=True, null=True)
-    language = models.CharField(max_length=50, choices=LANGUAGE_CHOICES, verbose_name="Язык издания", default='russian')  # Язык издания
+    language = models.CharField(max_length=50, choices=LANGUAGE_CHOICES, verbose_name="Язык издания", default=constants.DEFAULT_LANGUAGE)  # Язык издания
     condition = models.CharField(
-        max_length=20, choices=CONDITION_CHOICES, verbose_name="Сохранность", default='good', blank=True  # состояние 
+        max_length=20, choices=CONDITION_CHOICES, verbose_name="Сохранность", default=constants.DEFAULT_CONDITION, blank=True  # состояние 
     )
     cover_type = models.CharField(
-        max_length=20, choices=COVER_TYPES, verbose_name="Тип переплёта", default='hard'
+        max_length=20, choices=COVER_TYPES, verbose_name="Тип переплёта", default=constants.DEFAULT_COVER_TYPE
     )
     # строка "тип книги
     book_type = models.CharField(
-        max_length=20, choices=BOOK_TYPE, verbose_name="Тип книги", default='printed book', blank=True)  # тип книги 
+        max_length=20, choices=BOOK_TYPE, verbose_name="Тип книги", default=constants.DEFAULT_BOOK_TYPE, blank=True)  # тип книги 
 
     # строка "тип бумаги"
     paper_type = models.CharField(
-    max_length=20, choices=PAPER_TYPES, verbose_name="Тип бумаги", default='offset', blank=True   # "тип бумаги"
+    max_length=20, choices=PAPER_TYPES, verbose_name="Тип бумаги", default=constants.DEFAULT_PAPER_TYPE, blank=True   # "тип бумаги"
     )
     # blank=True - для строк ; обе делают поле не обязательным 
     # null=True больше подходит для числовых 
@@ -320,7 +164,7 @@ class Book(models.Model):
         blank=True, null=True
     )
     # ✅ FIX: default должен быть кодом из choices ('0'), а не отображаемым текстом ('Без НДС')
-    vat_rate = models.CharField(max_length=2, choices=VAT_RATES, verbose_name="Ставка НДС", default='0')
+    vat_rate = models.CharField(max_length=2, choices=VAT_RATES, verbose_name="Ставка НДС", default=constants.DEFAULT_VAT_RATE)
     stock = models.PositiveIntegerField(verbose_name="Остаток на складе", default=1)
     isbn = models.CharField(max_length=20, verbose_name="ISBN", blank=True, null=True, )
     isbn_digits = models.CharField(   # isbn без дефисов
@@ -331,7 +175,7 @@ class Book(models.Model):
         )
     tnved_code = models.CharField(
         max_length=200, verbose_name="ТН ВЭД коды ЕАЭС", 
-        default='4901100000 - Книги, брошюры, листовки и аналогичные печатные издания в виде отдельных листов, сфальцованные или несфальцованные', 
+        default=constants.DEFAULT_TNVED_CODE, 
         blank=True, null=True
     )
     weight = models.DecimalField(
