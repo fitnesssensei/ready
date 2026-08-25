@@ -131,7 +131,7 @@ class Book(models.Model):
     illustrator = models.CharField(max_length=100, verbose_name="Иллюстратор", blank=True, null=True)
     translator = models.CharField(max_length=100, verbose_name="Переводчик", blank=True, null=True)
     genre = models.CharField(max_length=100, choices=GENRE, verbose_name="Направление", default=constants.DEFAULT_GENRE, blank=True)
-    target_audience = models.CharField(max_length=100, choices=TARGET_AUDIENCE, verbose_name="Целевая аудитория", default='or children', blank=True)  # целевая аудитория 
+    target_audience = models.CharField(max_length=100, choices=TARGET_AUDIENCE, verbose_name="Целевая аудитория", default=constants.DEFAULT_TARGET_AUDIENCE, blank=True)  # целевая аудитория 
     age_restrictions = models.CharField(max_length=100, choices=AGE_RESTRICTIONS, verbose_name="Возрастные ограничения", default=constants.DEFAULT_AGE_RESTRICTION, blank=True)  # возраст огран  
     is_adult = models.CharField(choices=IS_ADULT, verbose_name="Признак 18+", default=constants.DEFAULT_IS_ADULT, blank=True )
     publisher = models.CharField(max_length=100, verbose_name="Издательство", default="")

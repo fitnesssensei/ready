@@ -140,10 +140,10 @@ python manage.py runserver
 - `source` — источник: `manual` или `eksmo`
 - `sku` — артикул, уникальный
 - `title` — название
-- `author` — автор (поддерживает несколько значений через разделитель `; `)
+- `author` — автор (поддерживает несколько значений через разделитель `;`)
 - `author_oblozh` — автор на обложке
 - `genre` — направление
-- `publisher` — издательство (поддерживает несколько значений через разделитель `; `)
+- `publisher` — издательство (поддерживает несколько значений через разделитель `;`)
 - `series` — серия
 - `publication_year` — год издания
 - `language` — язык издания: `russian`, `english`, `french`, `german`
@@ -172,7 +172,8 @@ python manage.py runserver
 Списки `choices` и строковые дефолты модели `Book` вынесены из `admin_panel/models.py` в отдельный модуль `admin_panel/constants.py`, чтобы модель не содержала данных.
 
 Что вынесено:
-- списки `choices`: `SOURCE_CHOICES`, `COVER_TYPES`, `VAT_RATES`, `GENRE`, `TARGET_AUDIENCE`, `AGE_RESTRICTIONS`, `IS_ADULT`, `LANGUAGE_CHOICES`, `CONDITION_CHOICES`, `BOOK_TYPE`, `PAPER_TYPES`;
+
+- списки`choices`:`SOURCE_CHOICES`,`COVER_TYPES`,`VAT_RATES`,`GENRE`,`TARGET_AUDIENCE`,`AGE_RESTRICTIONS`,`IS_ADULT`,`LANGUAGE_CHOICES`,`CONDITION_CHOICES`,`BOOK_TYPE`,`PAPER_TYPES`;
 - строковые источники: `SOURCE_MANUAL`, `SOURCE_EKSMO`, `SOURCE_AST`;
 - строковые дефолты полей: `DEFAULT_SOURCE`, `DEFAULT_GENRE`, `DEFAULT_COVER_TYPE`, `DEFAULT_BOOK_TYPE`, `DEFAULT_PAPER_TYPE`, `DEFAULT_LANGUAGE`, `DEFAULT_CONDITION`, `DEFAULT_IS_ADULT`, `DEFAULT_AGE_RESTRICTION`, `DEFAULT_VAT_RATE`, `DEFAULT_TNVED_CODE`.
 
@@ -757,7 +758,7 @@ sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book
 11. **Экспорт в несколько шаблонов Ozon поддерживается.**это работает только в локалке !
    Если активно несколько шаблонов `OzonTemplate` с разными диапазонами `year_from`/`year_to`, функция `export_books_to_ozon_template` распределяет книги по шаблонам согласно году издания. При одном активном шаблоне возвращается `.xlsx`; при двух и более — ZIP-архив (`ozon_templates_export.zip`) со всеми сгенерированными файлами.
 
-11. **Экспорт в несколько шаблонов Ozon поддерживается.**это работает только в локалке !
+11.**Экспорт в несколько шаблонов Ozon поддерживается.**это работает только в локалке !
    Если активно несколько шаблонов `OzonTemplate` с разными диапазонами `year_from`/`year_to`, функция `export_books_to_ozon_template` распределяет книги по шаблонам согласно году издания. При одном активном шаблоне возвращается `.xlsx`; при двух и более — ZIP-архив (`ozon_templates_export.zip`) со всеми сгенерированными файлами.
 12. **Множественные авторы и издательства.**  
     Поля `author` и `publisher` в форме добавления/редактирования книги используют кастомный виджет `TagInputWidget`, который позволяет вводить несколько значений.  
@@ -765,7 +766,6 @@ sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book
     - Для удаления — нажмите × на теге или Backspace в пустом поле
     - Для автодополнения — начните печатать (подсказки из существующих значений)
     - Хранение в БД — через разделитель `"; "`, миграции не потребовались
-
 
 ---
 
@@ -805,7 +805,7 @@ python manage.py collectstatic --noinput
 Репозиторий разделён на ветки по назначению. Рабочая (стабильная) ветка — `main`; ветки-фичи выносятся отдельно, чтобы не смешивать незавершённый код с рабочим.
 
 | Ветка | Содержимое | Статус |
-|---|---|---|
+
 | **`main`** | Рабочая ветка: экспорт в несколько шаблонов Ozon (вкл. ZIP-архив при ≥2 шаблонах), справочники `shablon/*.xml` | ✅ Стабильная, запушена в `origin` |
 | **`production`** | Совпадает с `origin/production` (состояние на сервере), без экспериментальных фич | ✅ Стабильная |
 | **`feature/avito-xml`** | Экспорт выбранных книг в XML для Avito (`export_books_to_avito_xml`, `admin_panel/avito_catalogs.py`) | ⚠️ WIP — **не работает** (см. раздел 8) |

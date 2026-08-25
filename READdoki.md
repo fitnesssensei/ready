@@ -4,6 +4,10 @@
 
 меняй код только через python
 
+## копия бд локально
+
+(venv) rustamismagilov@MacBook-Pro-Rustam ~/D/ready (main)> ssh semen@v3144166.hosted-by-vdsina.ru "sudo -u postgres pg_dump shop_admin_db" > ~/Desktop/backup_full.sql
+
 ## zapusk neyrosety
 
 cline

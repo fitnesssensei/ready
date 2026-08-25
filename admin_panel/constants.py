@@ -158,6 +158,10 @@ LANGUAGE_CHOICES = [
     ('japanese', 'Японский'),
     ('vietnamese', 'Вьетнамский'),
     ('thai', 'Тайский'),
+    ('ukrainian', 'Украинский'),
+    ('polish', 'Польский'),
+    ('latin', 'Латинский'),
+    ('other', 'Другой'),
 ]
 
 # --- Сохранность ---
@@ -206,6 +210,7 @@ DEFAULT_LANGUAGE = 'russian'
 DEFAULT_CONDITION = 'good'
 DEFAULT_IS_ADULT = 'yes'
 DEFAULT_AGE_RESTRICTION = '18+'
+DEFAULT_TARGET_AUDIENCE = 'for children'
 DEFAULT_VAT_RATE = '0'
 DEFAULT_TNVED_CODE = (
     '4901100000 - Книги, брошюры, листовки и аналогичные печатные издания '
