@@ -262,3 +262,51 @@ class EksmoBook(Book):
         proxy = True
         verbose_name = "Книга"
         verbose_name_plural = "База книг"
+
+class YandexTemplate(models.Model):
+    """
+    Модель для хранения Excel-шаблонов Яндекс Маркета.
+
+    Аналогична OzonTemplate:
+    - Шаблоны загружаются вручную через админку (на странице шаблонов Ozon
+      через инлайн, либо на отдельной странице «Шаблоны Яндекс Маркета»)
+    - Активным может быть только один шаблон: при активации нового
+      остальные автоматически деактивируются
+    - Файлы хранятся в media/yandex_templates/
+    """
+
+    name = models.CharField(max_length=200, verbose_name="Название шаблона")
+
+    file = models.FileField(upload_to='yandex_templates/', verbose_name="Excel файл")
+
+    description = models.TextField(blank=True, verbose_name="Описание")
+
+    is_active = models.BooleanField(default=True, verbose_name="Активный")
+
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата загрузки")
+
+    class Meta:
+        verbose_name = "Шаблон Яндекс Маркета"
+        verbose_name_plural = "Шаблоны Яндекс Маркета"
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.uploaded_at.strftime('%Y-%m-%d')})"
+
+    def save(self, *args, **kwargs):
+        # Активным может быть только один шаблон
+        if self.is_active:
+            YandexTemplate.objects.exclude(pk=self.pk).update(is_active=False)
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_active_path(cls):
+        """Путь к файлу активного шаблона или None."""
+        import os
+        from django.conf import settings
+        tpl = cls.objects.filter(is_active=True).order_by('-uploaded_at').first()
+        if not tpl:
+            return None
+        path = os.path.join(settings.MEDIA_ROOT, tpl.file.name)
+        return path if os.path.exists(path) else None
+
