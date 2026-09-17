@@ -78,30 +78,70 @@ def _slugify_name(name: str) -> str:
     return slug[:50] or 'template'
 
 
+def _normalize_ozon_header(value) -> str:
+    """
+    Единая нормализация названий колонок Ozon.
+
+    Убирает неразрывные пробелы и переносы строк, приводит регистр,
+    срезает значки валют (₽, руб.), запятые, точки, кавычки и «ёлочки»,
+    а также маркеры обязательности (*, **). Благодаря этому заголовок
+    шаблона и ключ словаря совпадают независимо от оформления:
+
+        'Предельная цена без акций, ₽'  ==  'предельная цена без акций'
+        'Зачёркнутая цена, ₽'           ==  'зачеркнутая цена'
+        'Цена, руб.*'                   ==  'цена'
+        'Штрихкод (Серийный номер / EAN)' == 'штрихкод серийный номер ean'
+    """
+    text = str(value)
+    text = text.replace('\n', ' ').replace('\r', ' ').replace('\u00a0', ' ')
+    text = text.lower()
+    # Значки валют — в любой позиции, а не только в конце.
+    for token in ('₽', 'руб.', 'руб', 'р.', 'rub', 'rur'):
+        text = text.replace(token, ' ')
+    # Пунктуация и маркеры обязательности не должны влиять на поиск.
+    for token in (',', ';', '.', '(', ')', '/', '\\', '"', "'", '«', '»', '№', '*'):
+        text = text.replace(token, ' ')
+    # 'ё' и 'ёлочки' приводим к 'е', чтобы «Зачёркнутая» == «Зачеркнутая».
+    text = text.replace('ё', 'е')
+    return ' '.join(text.split())
+
+
 def _ozon_headers_and_mapping(ws, media_base_url):
+    """
+    Читает заголовки шаблона (строка 2) и сопоставляет их с данными книги.
+
+    Возвращает (columns, resolved):
+      columns  — {номер_колонки: заголовок_как_в_файле} для всех непустых колонок;
+      resolved — {номер_колонки: функция(book)} только для распознанных колонок.
+
+    Сопоставление идёт по нормализованному имени (_normalize_ozon_header),
+    поэтому значок ₽, запятые и пробелы больше не ломают маппинг.
+    """
     header_row = 2
-    headers = {}
+    columns = {}
     for col_num in range(1, ws.max_column + 1):
         cell_value = ws.cell(row=header_row, column=col_num).value
-        if cell_value:
-            header_clean = str(cell_value).replace('\n', ' ').strip().lower()
-            headers[header_clean] = col_num
+        if cell_value is None:
+            continue
+        if not str(cell_value).strip():
+            continue
+        columns[col_num] = str(cell_value).replace('\n', ' ').strip()
+
     field_mapping = {
-        'артикул*': lambda book: book.sku or '',
+        'артикул': lambda book: book.sku or '',
         'название товара': lambda book: book.title or '',
-        'цена, руб.*': lambda book: float(book.price) if book.price else '',
-        'предельная цена без акций, ₽': lambda book: float(book.price) if book.price else '',
-        'цена до скидки, руб.': lambda book: float(book.old_price) if book.old_price else '',
-        'зачёркнутая цена, ₽': lambda book: float(book.old_price) if book.old_price else '',
-        'ндс, %*': lambda book: int(book.vat_rate) if book.vat_rate else 0,
-        'штрихкод (серийный номер / ean)': lambda book: '',
+        'цена': lambda book: float(book.price) if book.price else '',
+        'предельная цена без акций': lambda book: float(book.price) if book.price else '',
+        'цена до скидки': lambda book: float(book.old_price) if book.old_price else '',
+        'зачеркнутая цена': lambda book: float(book.old_price) if book.old_price else '',
+        'ндс %': lambda book: int(book.vat_rate) if book.vat_rate else 0,
+        'штрихкод серийный номер ean': lambda book: '',
         'isbn': lambda book: book.isbn or '',
-        'isbn*': lambda book: book.isbn or '',
-        'вес в упаковке, г*': lambda book: int(float(book.weight)) if book.weight else '',
-        'ширина упаковки, мм*': lambda book: int(float(book.width)) if book.width else '',
-        'высота упаковки, мм*': lambda book: int(float(book.height)) if book.height else '',
-        'длина упаковки, мм*': lambda book: int(float(book.length)) if book.length else '',
-        'ссылка на главное фото*': lambda book: (
+        'вес в упаковке г': lambda book: int(float(book.weight)) if book.weight else '',
+        'ширина упаковки мм': lambda book: int(float(book.width)) if book.width else '',
+        'высота упаковки мм': lambda book: int(float(book.height)) if book.height else '',
+        'длина упаковки мм': lambda book: int(float(book.length)) if book.length else '',
+        'ссылка на главное фото': lambda book: (
             f'{media_base_url}{book.photos[0]}' if book.photos else ''
         ),
         'ссылки на дополнительные фото': lambda book: (
@@ -109,17 +149,16 @@ def _ozon_headers_and_mapping(ws, media_base_url):
             if len(book.photos) > 1 else ''
         ),
         'артикул фото': lambda book: book.sku or '',
-        'автор на обложке*': lambda book: (
+        'автор на обложке': lambda book: (
             book.author_oblozh if book.author_oblozh else (book.author or '')
         ),
         'автор': lambda book: book.author or '',
         'тип обложки': lambda book: book.get_cover_type_display() or '',
         'тип книги': lambda book: _ozon_book_type(book),
-        'тип*': lambda book: 'Печатная книга',
-        'бренд*': lambda book: book.publisher or 'Нет бренда',
-        'тн вэд коды еаэс*': lambda book: book.tnved_code or '',
+        'тип': lambda book: 'Печатная книга',
+        'бренд': lambda book: book.publisher or 'Нет бренда',
         'тн вэд коды еаэс': lambda book: book.tnved_code or '',
-        'направление*': lambda book: book.get_genre_display() or '',
+        'направление': lambda book: book.get_genre_display() or '',
         'целевая аудитория литературы': lambda book: book.get_target_audience_display() or '',
         '#хештеги': lambda book: book.hashtags or '',
         'аннотация': lambda book: book.description or '',
@@ -131,36 +170,68 @@ def _ozon_headers_and_mapping(ws, media_base_url):
         'тип бумаги в книге': lambda book: book.get_paper_type_display() or '',
         'язык издания': lambda book: book.get_language_display() or 'Русский',
         'количество страниц': lambda book: book.pages or '',
-        'вес товара, г': lambda book: int(float(book.weight)) if book.weight else '',
+        'вес товара г': lambda book: int(float(book.weight)) if book.weight else '',
         'сохранность книги': lambda book: book.get_condition_display() or '',
         'возрастные ограничения': lambda book: book.get_age_restrictions_display() or '',
         'признак 18+': lambda book: 'Да' if book.is_adult == 'yes' else 'Нет',
     }
-    return headers, field_mapping
+
+    # Нормализуем ключи словаря и ищем колонку по нормализованному имени.
+    # Если два разных ключа после нормализации совпали — это ошибка в словаре,
+    # иначе один из мапперов молча перекрыл бы другой.
+    mapper_by_norm = {}
+    raw_by_norm = {}
+    for key, fn in field_mapping.items():
+        normalized = _normalize_ozon_header(key)
+        if normalized in mapper_by_norm and raw_by_norm[normalized] != key:
+            logger.error(
+                "Ozon маппинг: ключи '%s' и '%s' после нормализации совпали в '%s'",
+                raw_by_norm[normalized], key, normalized,
+            )
+        mapper_by_norm[normalized] = fn
+        raw_by_norm.setdefault(normalized, key)
+
+    resolved = {}
+    unmatched = []
+    for col_num, header in columns.items():
+        mapper = mapper_by_norm.get(_normalize_ozon_header(header))
+        if mapper is not None:
+            resolved[col_num] = mapper
+        else:
+            unmatched.append(f'{col_num}: {header}')
+
+    logger.info(
+        'Ozon шаблон: распознано колонок %s из %s', len(resolved), len(columns)
+    )
+    if unmatched:
+        logger.warning(
+            'Ozon шаблон: не распознаны колонки -> %s', '; '.join(unmatched)
+        )
+
+    return columns, resolved
 
 
-def _fill_ozon_sheet(ws, books, headers, field_mapping):
+def _fill_ozon_sheet(ws, books, columns, resolved):
+    """
+    Заполняет лист данными книг, начиная со строки 5.
+
+    columns  — {номер_колонки: заголовок} (для сообщений об ошибках);
+    resolved — {номер_колонки: функция(book)} только для распознанных колонок.
+    """
     current_row = 5
     for idx, book in enumerate(books, 1):
         ws.cell(row=current_row, column=1).value = idx
-        for header_name, col_num in headers.items():
-            #mapper = field_mapping.get(header_name) or field_mapping.get(header_name.rstrip('*'))
-            base_name = header_name.rstrip('*').strip()
-            mapper = (
-                field_mapping.get(header_name)
-                or field_mapping.get(base_name)
-                or next((v for k, v in field_mapping.items() if k.rstrip('*').strip() == base_name), None)
-            )
-            if mapper:
-                try:
-                    value = mapper(book)
-                    ws.cell(row=current_row, column=col_num).value = value
-                except Exception as e:
-                    logger.warning(
-                        f"Ошибка при заполнении '{header_name}' "
-                        f"для книги {book.id} ({book.sku}): {e}"
-                    )
-                    ws.cell(row=current_row, column=col_num).value = ''
+        for col_num, mapper in resolved.items():
+            header_name = columns.get(col_num, f'колонка {col_num}')
+            try:
+                value = mapper(book)
+                ws.cell(row=current_row, column=col_num).value = value
+            except Exception as e:
+                logger.warning(
+                    f"Ошибка при заполнении '{header_name}' "
+                    f"для книги {book.id} ({book.sku}): {e}"
+                )
+                ws.cell(row=current_row, column=col_num).value = ''
         current_row += 1
 
 
@@ -243,8 +314,8 @@ def export_books_to_ozon_template(request):
         if 'Шаблон' not in wb.sheetnames:
             raise ValueError(f"В шаблоне '{tpl.name}' нет листа 'Шаблон'")
         ws = wb['Шаблон']
-        headers, field_mapping = _ozon_headers_and_mapping(ws, media_base_url)
-        _fill_ozon_sheet(ws, tpl_books, headers, field_mapping)
+        columns, resolved = _ozon_headers_and_mapping(ws, media_base_url)
+        _fill_ozon_sheet(ws, tpl_books, columns, resolved)
         tmp = tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False)
         wb.save(tmp.name)
         tmp.close()
