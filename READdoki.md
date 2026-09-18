@@ -19,10 +19,6 @@ deepcode
 
 (venv) rustamismagilov@MacBook-Pro-Rustam ~/D/ready (main)> ssh semen@v3144166.hosted-by-vdsina.ru "sudo -u postgres pg_dump shop_admin_db" > ~/Desktop/backup_full.sql
 
-## zapusk neyrosety
-
-cline
-
 ## объединение всех JSON в один
 
 python merge_json.py --input JSON --output merged_books.json
