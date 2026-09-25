@@ -92,7 +92,7 @@ ssh semen@v3144166.hosted-by-vdsina.ru
 cd /home/semen/ready
 
 git pull origin main
-source venv/bin/activate 
+source venv/bin/activate
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 sudo systemctl restart gunicorn
