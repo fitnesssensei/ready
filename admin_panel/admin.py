@@ -4,7 +4,9 @@ import uuid
 
 from django.conf import settings
 from django.contrib import admin
+from django.core.cache import cache
 from django.core.files.storage import default_storage
+from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import path, reverse
@@ -190,6 +192,91 @@ class OzonTemplateAdmin(admin.ModelAdmin):
     )
 
 
+class PublicationPeriodFilter(admin.SimpleListFilter):
+    """
+    Фильтр по периоду издания.
+
+    Раньше в ``list_filter`` поле ``publication_year`` стояло напрямую, и Django
+    применял AllValuesFieldListFilter: на каждом открытии списка выполнялся
+    ``SELECT DISTINCT publication_year`` по всей таблице (~4 с на 726 тыс. строк).
+
+    Периоды не требуют ни одного запроса к БД и удобнее для пользователя.
+    """
+
+    title = 'Период издания'
+    parameter_name = 'period'
+
+    # (значение, подпись, год от, год до); None — без ограничения с этой стороны
+    PERIODS = (
+        ('to1950', 'до 1950', None, 1950),
+        ('1951-1990', '1951–1990', 1951, 1990),
+        ('1991-2010', '1991–2010', 1991, 2010),
+        ('from2011', '2011 и позже', 2011, None),
+    )
+
+    def lookups(self, request, model_admin):
+        return [(value, label) for value, label, _, _ in self.PERIODS]
+
+    def queryset(self, request, queryset):
+        for value, _label, year_from, year_to in self.PERIODS:
+            if self.value() != value:
+                continue
+            if year_from is not None:
+                queryset = queryset.filter(publication_year__gte=year_from)
+            if year_to is not None:
+                queryset = queryset.filter(publication_year__lte=year_to)
+            return queryset
+        return queryset
+
+
+class TopPublisherFilter(admin.SimpleListFilter):
+    """
+    Фильтр по издательству — только самые крупные.
+
+    Поле ``publisher`` стояло в ``list_filter`` напрямую, а в базе 82 024
+    уникальных издательства. Django на каждой загрузке списка делал
+    ``SELECT DISTINCT publisher`` (~4.8 с) и рисовал 82 тыс. ссылок — это 15.4 МБ
+    HTML, от которого виснет браузер.
+
+    Здесь показываем TOP_N издательств по числу книг; список кэшируется,
+    поэтому сайдбар не делает запросов к БД вообще.
+    """
+
+    title = 'Издательство'
+    parameter_name = 'pub'
+
+    TOP_N = 50
+    CACHE_KEY = 'admin:top_publishers'
+    CACHE_TTL = 6 * 60 * 60
+
+    def lookups(self, request, model_admin):
+        choices = cache.get(self.CACHE_KEY)
+        if choices is None:
+            choices = list(
+                Book.objects
+                .exclude(publisher__isnull=True)
+                .exclude(publisher='')
+                # order_by() без аргументов сбрасывает Meta.ordering модели
+                # (['-created_at']). В этом проекте уже была авария из-за того,
+                # что DISTINCT тянул за собой created_at (см. миграцию 0096) —
+                # поэтому страхуемся явно.
+                .order_by()
+                .values_list('publisher')
+                .annotate(books_count=Count('id'))
+                .order_by('-books_count')[:self.TOP_N]
+            )
+            cache.set(self.CACHE_KEY, choices, self.CACHE_TTL)
+        return [
+            (publisher, f'{publisher} ({books_count})')
+            for publisher, books_count in choices
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(publisher=self.value())
+        return queryset
+
+
 class BaseBookAdmin(admin.ModelAdmin):
     """
     Базовый класс админки для книг.
@@ -213,8 +300,11 @@ class BaseBookAdmin(admin.ModelAdmin):
         'hashtags', 'pages', 'display_dimensions', 'created_at',
     )
     list_filter = (
-        'category', 'genre', 'publisher', 'language',
-        'book_type', 'publication_year', 
+        'category', 'genre', 'language', 'book_type',
+        # Внимание: поля 'publisher' и 'publication_year' намеренно НЕ используются
+        # напрямую — см. PublicationPeriodFilter и TopPublisherFilter выше.
+        PublicationPeriodFilter,
+        TopPublisherFilter,
     )
     search_fields = (
         'sku', 'title', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre',
