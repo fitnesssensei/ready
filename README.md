@@ -58,6 +58,9 @@ ready/
 ├── import_eksmo_books.py             # импорт книг Эксмо (source='eksmo')
 ├── merge_json.py                     # объединение JSON-файлов
 ├── extract_dims.py                   # извлечение размеров из JSON
+├── deploy/                           # скрипты оптимизации и замеров прода (см. раздел 19)
+│   ├── optimize_A.sh                 # тюнинг сервера: DEBUG=False, PostgreSQL, gunicorn, индекс
+│   └── measure_admin.py              # замеры страниц админки «до/после»
 ├── vBaze/                            # большие JSON-каталоги
 └── media/                            # media-файлы и шаблоны Ozon
 ```
@@ -796,6 +799,10 @@ python manage.py convert_dims_to_mm --dry-run
 python manage.py fill_isbn_digits
 # Собрать статику
 python manage.py collectstatic --noinput
+# Замеры страниц админки «до/после» (запускать на сервере из корня проекта)
+python deploy/measure_admin.py
+# Тюнинг сервера: DEBUG=False, PostgreSQL, gunicorn, составной индекс (сначала dry-run)
+bash deploy/optimize_A.sh --dry-run
 ```
 
 ---
@@ -826,6 +833,352 @@ git push -u origin main feature/avito-xml feature/zip-export
 
 ---
 
-## 19. Краткое резюме
+## 19. Оптимизация админки `/admin/admin_panel/eksmobook/`
+
+Диагностика выполнена на живом проде `v3144166.hosted-by-vdsina.ru` (только чтение,
+временные скрипты после себя убраны). Все цифры ниже — **замеры на этом сервере**,
+а не оценки.
+
+---
+
+### 1. Что сделано в этом патче
+
+#### Вариант B — код (в этом репозитории, нужен деплой)
+
+| Файл | Что изменено |
+|---|---|
+| `admin_panel/admin.py` | добавлены `PublicationPeriodFilter` и `TopPublisherFilter`; в `BaseBookAdmin.list_filter` убраны прямые `publisher` и `publication_year` |
+| `shop_admin/settings.py` | добавлена явная секция `CACHES` (LocMemCache) под кэш фильтра издательств |
+
+#### Вариант A — сервер (скрипт, запускается на сервере)
+
+| Файл | Что делает |
+|---|---|
+| `deploy/optimize_A.sh` | `DEBUG=False`, тюнинг PostgreSQL, gunicorn sync → gthread, составной индекс, остановка мёртвого деплоя |
+| `deploy/measure_admin.py` | замер страниц админки «до/после» |
+
+---
+
+### 2. Как применить
+
+#### Шаг 0. Привести рабочую копию прода в порядок
+
+Сейчас на сервере ветка `main`, HEAD на `15051e7`, и есть **незакоммиченная правка**
+`admin_panel/migrations/0096_normalize_language_and_target_audience.py`.
+
+Проверено: её содержимое **побайтово совпадает** с тем, что уже лежит в `main`
+(коммит `17e9674`). То есть исправление сделали руками прямо на сервере вместо
+деплоя. Его можно безопасно отбросить и просто подтянуть коммиты:
+
+```bash
+cd /home/semen/ready
+git checkout -- admin_panel/migrations/0096_normalize_language_and_target_audience.py
+git pull origin main      # приедет ровно тот же самый фикс 0096 (origin/main = 17e9674)
+```
+
+Проверено: `origin/main` указывает на `17e9674` — тот самый фикс. Прод стоит на
+`15051e7`, то есть отстаёт на один коммит. Отбрасывать правку безопасно: её
+содержимое придёт из репозитория.
+
+Если этого не сделать, `git pull` и `git cherry-pick` будут спотыкаться о грязное
+дерево, а `git reset --hard` уничтожит этот фикс.
+
+#### Шаг 1. Код (вариант B)
+
+```bash
+# локально
+git add admin_panel/admin.py shop_admin/settings.py deploy/
+git commit -m "perf: фильтры админки — периоды вместо DISTINCT по 726k строк"
+git push origin main
+
+# на сервере
+ssh semen@v3144166.hosted-by-vdsina.ru
+cd /home/semen/ready
+git pull origin main
+source venv/bin/activate
+python manage.py collectstatic --noinput
+sudo systemctl restart gunicorn
+```
+
+Миграции не нужны — модели не менялись. `python manage.py check` проходит без замечаний.
+
+> Учтите: локальная ветка `main` сейчас **на 2 коммита впереди `origin/main`**
+> (`6a8c3e4` про tnved_code и `3f3b39b` про READdoki.md). `git push origin main`
+> отправит и их — это нормально, просто чтобы не было неожиданностью.
+> Альтернатива, если не хотите тащить их в прод сейчас:
+> ```bash
+> git checkout -b perf/admin-filters
+> git add admin_panel/admin.py shop_admin/settings.py deploy/
+> git commit -m "perf: фильтры админки — периоды вместо DISTINCT по 726k строк"
+> git push origin perf/admin-filters
+> ```
+> и на сервере `git cherry-pick <хеш>`.
+
+#### Шаг 2. Сервер (вариант A)
+
+```bash
+cd /home/semen/ready
+
+# сначала посмотреть план, ничего не меняя
+bash deploy/optimize_A.sh --dry-run
+
+# применить; индексы лучше создавать ночью — это несколько минут нагрузки на диск
+bash deploy/optimize_A.sh
+```
+
+Скрипт идемпотентен, бэкапит `.env` и `gunicorn.service` в
+`/home/semen/ready/backups/optimize-A-<timestamp>/`.
+
+#### Шаг 3. Проверка
+
+```bash
+cd /home/semen/ready && source venv/bin/activate
+python deploy/measure_admin.py
+```
+
+---
+
+### 3. Замеры: до и после
+
+Страница прогонялась через Django test client на самом сервере с суперпользователем.
+
+| Метрика | Было | После B (замерено) |
+|---|---|---|
+| **Список книг** | **15.79 с / 15.5 МБ** | **4.14 с / 248 КБ** |
+| Список + поиск `?q=война` | 27.09 с | — (лечится вариантом D) |
+| Форма добавления | 0.11 с | 0.11 с |
+| Ссылок в сайдбаре | 82 722 | 54 |
+
+Что ушло из 15.79 с:
+
+| Запрос | Было | Стало |
+|---|---|---|
+| `SELECT DISTINCT publisher` | 4.78 с + 15.4 МБ HTML | **0** |
+| `SELECT DISTINCT publication_year` | 4.26 с | **0** |
+| `SELECT COUNT(*)` пагинатора | 4.03 с | 3.34 с (это вариант C, ещё не сделан) |
+| Отрисовка шаблонов | ~2.5 с (следствие `DEBUG=True`) | лечится вариантом A |
+
+Оставшиеся ~4 с — это ровно тот `COUNT(*)`, который убирает вариант C.
+
+---
+
+### 4. Что нашлось попутно и важно знать
+
+#### 4.1. Фильтр по издательству был не просто медленным, а катастрофическим
+
+Админка сортирует список по `created_at DESC` с `LIMIT 100`. Когда применён фильтр по
+издательству, планировщик идёт по индексу `book_created_at_idx` назад и **отбрасывает всё,
+что не подходит**:
+
+```
+Index Scan Backward using book_created_at_idx
+  Filter: publisher = 'Издательство АСТ'
+  Rows Removed by Filter: 457067        <-- вот оно
+  Execution Time: 56543 ms
+```
+
+Книги в таблице **не сгруппированы по издательству**: АСТ импортирован раньше, а последние
+сотни тысяч строк — почти целиком Эксмо. Поэтому «свежий» индекс приходится просматривать
+почти насквозь.
+
+Замеренные страницы с фильтром издательства **до** составного индекса:
+
+| Значение фильтра | Время страницы |
+|---|---|
+| `Издательство "Эксмо"` | **100.85 с** |
+| `Издательство АСТ` | **74.37 с** |
+| `М.: АСТ` | 9.20 с |
+
+Это **не регресс от варианта B**: такой запрос был ровно таким же медленным и до патча —
+просто раньше до него было почти невозможно добраться через список из 82 024 значений.
+Вариант B делает фильтр доступным, поэтому составной индекс обязателен:
+
+```sql
+CREATE INDEX CONCURRENTLY book_publisher_created_idx
+    ON admin_panel_book (publisher, created_at DESC);
+```
+
+Он превращает это в чтение ровно 100 строк индекса вместо 456 967 отброшенных.
+Скрипт `deploy/optimize_A.sh` создаёт его автоматически.
+
+> Проверить фактический эффект можно только после создания индекса — `deploy/measure_admin.py`
+> покажет время по строке «Список + фильтр издательства».
+
+#### 4.2. Что НЕ помогает (проверено, в патч не вошло)
+
+| Гипотеза | Результат замера | Вывод |
+|---|---|---|
+| `max_parallel_workers_per_gather = 0` (1 vCPU) | COUNT(*) **5.52 с** против 4.72 с с параллелью | **хуже**, не трогаем |
+| `random_page_cost = 1.1` | план не меняется, 5.29 с | бесполезно, не трогаем |
+| `work_mem` 4 → 16 МБ для `DISTINCT publisher` | сорт ушёл в память (7.6 МБ), но время то же | не главное, но оставляем |
+| Индексировать `publisher` (одиночный) | индекс уже есть, план всё равно seq scan | дело не в индексе, а в `ORDER BY` + `LIMIT` |
+| Создать `(publication_year, created_at DESC)` | периоды и так работают: worst case «до 1950» = 1.1 с, остальные < 5 мс | **не нужен** |
+
+#### 4.3. Дрейф схемы: 7 индексов из `models.py` отсутствуют в БД
+
+Миграции `0077` и `0078` помечены применёнными (24.06.2026), но их индексов в базе нет:
+
+```
+book_isbn_idx        book_author_idx      book_series_idx
+book_category_idx    book_condition_idx   book_cover_type_idx
+book_book_type_idx
+```
+
+**`python manage.py migrate` это не починит** — Django считает, что они уже созданы. Судя по
+всему, таблицу когда-то пересоздавали, а `django_migrations` сохранился.
+
+Хорошая новость: на текущую скорость они не влияют (фильтры по этим полям идут через `choices`
+или FK-индекс). Это гигиена схемы, а не производительность. Если захотите восстановить:
+
+```sql
+CREATE INDEX CONCURRENTLY IF NOT EXISTS book_isbn_idx       ON admin_panel_book (isbn);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS book_author_idx     ON admin_panel_book (author);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS book_series_idx     ON admin_panel_book (series);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS book_book_type_idx  ON admin_panel_book (book_type);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS book_condition_idx  ON admin_panel_book (condition);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS book_cover_type_idx ON admin_panel_book (cover_type);
+ANALYZE admin_panel_book;
+```
+
+`book_category_idx` создавать не нужно — он дублирует автоматический FK-индекс
+`admin_panel_book_category_id_f4540259`.
+
+#### 4.4. Кэш `LocMemCache` — на каждый воркер свой
+
+В `settings.py` стоит локальный кэш процессов. У gunicorn 2 воркера, значит агрегат
+топ-50 издательств посчитается 2 раза за 6 часов (≈5.2 с каждый раз). Это приемлемо.
+С Redis кэш будет общим — код при этом не меняется, только `BACKEND`/`LOCATION`.
+
+#### 4.5. Что уже один раз уронило прод: `Meta.ordering` + `DISTINCT`
+
+Из незакоммиченной правки миграции 0096 (см. шаг 0) видно, что предыдущая её версия делала:
+
+```python
+Book.objects.exclude(language='').values_list('language', flat=True).distinct()
+```
+
+У `Book` задано `Meta.ordering = ['-created_at']`, поэтому Django подставил `created_at`
+в `SELECT DISTINCT`. `created_at` уникален → вернулась почти вся таблица (726 k строк),
+PostgreSQL отсортировал её целиком, а Django материализовал сотни тысяч строк в Python.
+Итог, судя по комментарию в самой правке: 16+ ГБ чтения, 2 ч 43 мин CPU, диск 100 %,
+`PANIC: could not write to pg_wal/xlogtemp` и аварийное завершение PostgreSQL
+(crash recovery прошёл, данные уцелели). PostgreSQL на момент диагностики был поднят
+примерно за 3 часа до неё, а исправленная 0096 применилась уже после рестарта.
+
+Это ровно тот класс ошибки, от которого страхует `.order_by()` в `TopPublisherFilter`.
+Правило для этого проекта простое: **любой `distinct()` или `annotate()` по `Book`
+обязан начинаться с `.order_by()`**.
+
+---
+
+### 5. Полный диагноз (исходное состояние)
+
+**Сервер:** 1 vCPU, 961 МБ RAM (+2 ГБ swap, 276 МБ занято), диск 10 ГБ (64 %),
+`rotational=1`, PostgreSQL 16, `shared_buffers` 128 МБ, **cache hit 60 %**,
+gunicorn 2 sync-воркера, `DEBUG=True`, второй мёртвый gunicorn из `/var/www/ready`.
+
+**Данные:** `admin_panel_book` — **726 235 строк** (eksmo 577 658 / ast 147 818 / manual 759),
+**937 МБ**, 12 индексов, **82 024 уникальных издательства**, 219 уникальных годов.
+
+**Причины тормозов по вкладу:**
+
+1. Фильтр `publisher` — `SELECT DISTINCT` по 726 k строк (4.8 с) **плюс** 82 722 ссылки
+   в HTML = 15.4 МБ, от которых виснет браузер. → **исправлено в B**
+2. `SELECT COUNT(*)` пагинатора — 4 с на каждое открытие. → *остаётся, вариант C*
+3. Фильтр `publication_year` — ещё 4 с. → **исправлено в B**
+4. Поиск: 13 полей `icontains` → `UPPER(col) LIKE UPPER('%...%')`, полный скан ~9.9 с.
+   → *остаётся, вариант D*
+5. `DEBUG=True` — нет кэша шаблонов, все 107 запросов пишутся в память. → **исправлено в A**
+6. `_search_all_books()` делает `list(qs)` — выгружает все 726 k объектов в память Python
+   (4.3–4.6 с на каждый AJAX при вводе). → *остаётся, вариант D*
+7. Cache hit 60 % + 128 МБ `shared_buffers` + HDD. → **частично в A**
+8. 2 sync-воркера: два медленных запроса блокируют весь сайт. → **исправлено в A**
+9. `list_display` из 29 колонок. → *остаётся*
+10. `EksmoBookAdmin.get_queryset` отдаёт все 726 k книг, хотя раздел называется «База книг».
+    → *остаётся, продуктовое решение*
+
+---
+
+### 6. Что осталось на потом
+
+#### Вариант C. Убрать `SELECT COUNT(*)` — минус последние 4 секунды
+
+```python
+# admin_panel/paginator.py
+from django.core.paginator import Paginator
+from django.db import connection
+
+
+class ApproxCountPaginator(Paginator):
+    """Не считает строки по всей таблице, если фильтров нет."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._count = None
+
+    @property
+    def count(self):
+        if self._count is None:
+            self._count = self._compute_count()
+        return self._count
+
+    def _compute_count(self):
+        qs = self.object_list
+        model = getattr(qs, 'model', None)
+        if model is None or qs.query.where:
+            return self.object_list.count()
+        try:
+            with connection.cursor() as cur:
+                cur.execute(
+                    "SELECT reltuples::bigint FROM pg_class WHERE oid = %s::regclass",
+                    [model._meta.db_table],
+                )
+                return max(cur.fetchone()[0], 0)
+        except Exception:
+            return self.object_list.count()
+```
+
+```python
+class BaseBookAdmin(admin.ModelAdmin):
+    paginator = ApproxCountPaginator
+    list_per_page = 25
+```
+
+Число страниц станет приблизительным — для 726 k строк это неважно.
+
+#### Вариант D. Поиск и автодополнение
+
+Ключевой нюанс: Django для `icontains` генерирует **`UPPER(col) LIKE UPPER('%...%')`**, а не
+`ILIKE`. Поэтому триграммный индекс нужен **по выражению `UPPER(col)`** — обычный
+`gin (col gin_trgm_ops)` не будет использован (проверено через `EXPLAIN`):
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX CONCURRENTLY book_title_trgm
+    ON admin_panel_book USING gin (UPPER(title) gin_trgm_ops);
+-- аналогично author, author_oblozh, publisher, series, isbn_digits
+```
+
+Плюс переписать `_search_all_books()`, убрав `list(qs)` (все 492 748 строк с ISBN имеют
+заполненный `isbn_digits`, поэтому питоновский перебор не нужен вообще), и сократить
+`search_fields` с 13 полей до 5.
+
+#### Вариант E. Инфраструктура
+
+2 vCPU / 4 ГБ RAM / NVMe. Сейчас БД 937 МБ при 1 ГБ RAM и HDD — cache hit 60 %.
+Это устраняет первопричину, а не симптомы. Плюс Redis под кэш и `CONN_MAX_AGE = 60`.
+
+---
+
+### 7. Безопасность — отдельно
+
+`DEBUG=True` на проде (закрывается вариантом A) означал, что любая 500-я ошибка отдаёт
+наружу трейсбек с настройками, SQL и путями к файлам. В логах nginx при этом видны
+активные сканы: `/.git/config`, `/055b92507911e16e307c8525bae08828`,
+`/LAPI/V1.0/System/DeviceBasicInfo` (эксплойт IP-камер). Закрыть это стоит в первую очередь.
+
+---
+
+## 20. Краткое резюме
 
 `ready` — это Django-админка для книжного магазина с упором на импорт каталога Эксмо, ручное управление товарами, загрузку фотографий и экспорт данных для Ozon. Основное рабочее место администратора — Django Admin. Основной источник товаров — модель `Book` с разделением по `source=manual` и `source=eksmo`. Для Ozon реализован безопасный офлайн-экспорт в Excel-шаблон, а прямой API пока отключён.
