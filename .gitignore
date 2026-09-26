@@ -98,3 +98,6 @@ deepseek-harness/
 backups/
 logs/
 
+# Локальные настройки Cline (агенты, скиллы, плагины проекта)
+.cline/
+

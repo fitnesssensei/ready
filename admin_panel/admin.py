@@ -6,7 +6,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.core.cache import cache
 from django.core.files.storage import default_storage
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import path, reverse
@@ -277,6 +277,144 @@ class TopPublisherFilter(admin.SimpleListFilter):
         return queryset
 
 
+class CreatedByFilter(admin.SimpleListFilter):
+    """
+    Фильтр «Кем добавлена» с выбором сразу нескольких пользователей.
+
+    Показывает только тех пользователей, кто реально добавил книги в каталог
+    (``source='manual'``), со счётчиками. Список кэшируется, как у
+    ``TopPublisherFilter``, поэтому сайдбар не считает агрегат на каждое открытие.
+
+    Мультивыбор: штатный ``SimpleListFilter`` умеет только одно значение — в
+    ``__init__`` он делает ``value[-1]``. Поэтому все значения из query-строки
+    читаются здесь самостоятельно: Django передаёт в фильтр словарь вида
+    ``{'created_by': ['1', '7']}`` (``ChangeList.filter_params =
+    dict(request.GET.lists())``), а ссылки сайдбара строит
+    ``ChangeList.get_query_string()`` с ``doseq=True``.
+    """
+
+    title = 'Кем добавлена'
+    parameter_name = 'created_by'
+
+    # Значение для книг без автора: их создал импорт или скрипт, а не человек
+    NO_AUTHOR = 'none'
+
+    CACHE_KEY = 'admin:created_by_users'
+    CACHE_TTL = 6 * 60 * 60
+
+    def __init__(self, request, params, model, model_admin):
+        # Все значения из query-строки (?created_by=1&created_by=7) читаем ДО
+        # super(): базовый SimpleListFilter вынимает параметр из params и
+        # сохраняет только последнее значение.
+        raw_values = params.get(self.parameter_name) or []
+        if isinstance(raw_values, str):
+            # Страховка на случай, если значение пришло строкой, а не списком
+            raw_values = [raw_values]
+        # Оставляем только осмысленные значения: «Без автора» или цифровой id.
+        # Мусор (?created_by=abc) отбрасываем — иначе он считался бы выбранным и
+        # тащился бы в ссылки сайдбара; повторы (1 и 1) при этом схлопываем.
+        normalized = (
+            str(value) for value in raw_values
+            if str(value) == self.NO_AUTHOR or str(value).isdigit()
+        )
+        self.selected_values = list(dict.fromkeys(normalized))
+        super().__init__(request, params, model, model_admin)
+
+    def lookups(self, request, model_admin):
+        """Список «значение → подпись»; считается один раз и кладётся в кэш."""
+        lookups = cache.get(self.CACHE_KEY)
+        if lookups is None:
+            lookups = self._build_lookups()
+            cache.set(self.CACHE_KEY, lookups, self.CACHE_TTL)
+        return lookups
+
+    @classmethod
+    def build_lookups(cls, rows, no_author_count):
+        """
+        Собирает «значение → подпись» для сайдбара.
+
+        Чистая функция без запросов к БД: строки агрегата и количество книг без
+        автора передаются снаружи, поэтому подписи легко покрыть тестами.
+        """
+        lookups = []
+        for user_id, username, books_count in rows:
+            # Имя может быть пустым — подставляем id, чтобы пункт не терялся
+            label = username or f'Пользователь #{user_id}'
+            lookups.append((str(user_id), f'{label} ({books_count})'))
+        # Отдельный пункт для книг без автора — их добавил импорт или скрипт
+        if no_author_count:
+            lookups.append((cls.NO_AUTHOR, f'Без автора ({no_author_count})'))
+        return lookups
+
+    def _build_lookups(self):
+        """Два запроса: авторы книг каталога и счётчик книг без автора."""
+        # order_by() без аргументов сбрасывает Meta.ordering (['-created_at']):
+        # иначе created_at попадёт в GROUP BY — в проекте из-за этого уже была
+        # авария (см. миграцию 0096), поэтому страхуемся явно.
+        rows = (
+            Book.objects
+            .filter(source=Book.SOURCE_MANUAL, created_by__isnull=False)
+            .order_by()
+            .values_list('created_by_id', 'created_by__username')
+            .annotate(books_count=Count('id'))
+            .order_by('-books_count', 'created_by__username')
+        )
+        no_author_count = Book.objects.filter(
+            source=Book.SOURCE_MANUAL, created_by__isnull=True,
+        ).count()
+        return self.build_lookups(rows, no_author_count)
+
+    def queryset(self, request, queryset):
+        """Отбор по выбранным пользователям: можно отметить нескольких сразу."""
+        if not self.selected_values:
+            return queryset
+
+        # Значения нормализованы в __init__: либо «Без автора», либо цифровой id,
+        # поэтому хотя бы одно условие здесь появится всегда.
+        user_ids = [
+            int(value) for value in self.selected_values
+            if value != self.NO_AUTHOR
+        ]
+        condition = Q(created_by_id__in=user_ids) if user_ids else Q()
+        if self.NO_AUTHOR in self.selected_values:
+            # Книги, созданные импортом/скриптом: автора у них нет
+            condition |= Q(created_by__isnull=True)
+        return queryset.filter(condition)
+
+    def choices(self, changelist):
+        """
+        Ссылки в сайдбаре: клик по пользователю добавляет его к выбранным,
+        повторный клик — убирает; «Все» сбрасывает фильтр целиком.
+        """
+        selected = self.selected_values
+        # «Все» активно, когда не выбрано ни одного пользователя
+        yield {
+            'selected': not selected,
+            'query_string': changelist.get_query_string(
+                remove=[self.parameter_name],
+            ),
+            'display': 'Все',
+        }
+        for lookup, title in self.lookup_choices:
+            value = str(lookup)
+            is_selected = value in selected
+            # Остальные выбранные значения сохраняем, чтобы клик не сбрасывал их
+            others = [item for item in selected if item != value]
+            if is_selected:
+                # Сняли последнее выбранное значение — вернётся состояние «Все»
+                new_values = others or None
+            else:
+                new_values = [*others, value]
+            yield {
+                'selected': is_selected,
+                'query_string': changelist.get_query_string(
+                    {self.parameter_name: new_values},
+                    remove=[self.parameter_name],
+                ),
+                'display': title,
+            }
+
+
 class BaseBookAdmin(admin.ModelAdmin):
     """
     Базовый класс админки для книг.
@@ -469,6 +607,10 @@ class BookRedirectAdmin(admin.ModelAdmin):
 class ManualBookAdmin(BaseBookAdmin):
     change_form_template = 'admin_panel/manualbook_change_form.html'
     change_list_template = 'admin_panel/change_list.html'
+
+    # Фильтры «Каталог — админки»: общие из BaseBookAdmin («Период издания»)
+    # плюс свой фильтр по автору записи — «Кем добавлена» (с мультивыбором).
+    list_filter = (*BaseBookAdmin.list_filter, CreatedByFilter)
 
     def get_queryset(self, request):
         return super().get_queryset(request).filter(source=Book.SOURCE_MANUAL)
