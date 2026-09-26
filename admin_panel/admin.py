@@ -297,14 +297,15 @@ class BaseBookAdmin(admin.ModelAdmin):
         'sku', 'author', 'author_oblozh', 'title', 'publisher', 'publication_year', 'series', 'pages', 'isbn',  # 'description',
         'category', 'book_type', 'condition', 'genre', 'cover_type', 'paper_type', 'language', 'translator', 'illustrator',
         'target_audience', 'age_restrictions', 'is_adult', 'price', 'old_price', 'vat_rate', 'stock',  # 'tnved_code',
-        'hashtags', 'pages', 'display_dimensions', 'created_at',
+        'hashtags', 'display_dimensions', 'created_at',
     )
+    # В боковой панели оставлен только фильтр «Период издания» (задача: убрать
+    # стандартные фильтры и фильтр издательств из сайдбара).
+    # Стандартные фильтры Django ('category', 'genre', 'language', 'book_type')
+    # и TopPublisherFilter больше не показываются. Сами классы фильтров остаются:
+    # TopPublisherFilter используется в deploy/measure_admin.py.
     list_filter = (
-        'category', 'genre', 'language', 'book_type',
-        # Внимание: поля 'publisher' и 'publication_year' намеренно НЕ используются
-        # напрямую — см. PublicationPeriodFilter и TopPublisherFilter выше.
         PublicationPeriodFilter,
-        TopPublisherFilter,
     )
     search_fields = (
         'sku', 'title', 'author', 'author_oblozh', 'illustrator', 'translator', 'genre',

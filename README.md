@@ -1181,6 +1181,55 @@ CREATE INDEX CONCURRENTLY book_title_trgm
 
 ---
 
+### 8. Удаление фильтров из сайдбара (26.09.2026)
+
+По задаче боковая панель фильтров почищена: остался только «Период издания».
+
+| Фильтр | Тип | Было | Стало |
+|---|---|---|---|
+| `category` | встроенный Django (`RelatedFieldListFilter`) | в сайдбаре | убран |
+| `genre` | встроенный (`ChoicesFieldListFilter`) | в сайдбаре | убран |
+| `language` | встроенный | в сайдбаре | убран |
+| `book_type` | встроенный | в сайдбаре | убран |
+| `TopPublisherFilter` | кастомный | в сайдбаре | убран |
+| `PublicationPeriodFilter` | кастомный | в сайдбаре | **оставлен** |
+
+Правка одна на обе страницы: `BaseBookAdmin.list_filter` в `admin_panel/admin.py`.
+Наследники — `EksmoBookAdmin` («База книг», `/admin/admin_panel/eksmobook/`)
+и `ManualBookAdmin` («Каталог — админка», `/admin/admin_panel/manualbook/`).
+
+Классы `PublicationPeriodFilter` и `TopPublisherFilter` **в коде оставлены**:
+`TopPublisherFilter` импортирует `deploy/measure_admin.py` (без него падают замеры)
+и на него ссылается секция `CACHES` в `shop_admin/settings.py`.
+
+| Файл | Что изменено |
+|---|---|
+| `admin_panel/admin.py` | в `BaseBookAdmin.list_filter` остался только `PublicationPeriodFilter`; убраны `'category'`, `'genre'`, `'language'`, `'book_type'` и `TopPublisherFilter` |
+| `admin_panel/tests.py` | было 3 строки заглушки, добавлены 5 тестов |
+
+Тесты (`SimpleTestCase`, база данных не нужна):
+
+1. в `list_filter` ровно один фильтр — «Период издания»;
+2. стандартных фильтров Django в сайдбаре больше нет;
+3. `TopPublisherFilter` убран из сайдбара, но класс остался в модуле;
+4. «База книг» и «Каталог — админка» показывают один и тот же набор фильтров;
+5. у «Периода издания» статические `lookups` — запросов к БД нет.
+
+Проверка:
+
+```bash
+python manage.py check                # System check identified no issues (0 silenced).
+python manage.py test admin_panel -v2 # Ran 5 tests in 0.001s ... OK
+```
+
+Тесты не трогают PostgreSQL: `SimpleTestCase` не требует БД, раннер пишет
+`Skipping setup of unused database(s): default.`
+
+Чтобы фильтры исчезли на проде, нужен деплой кода и `sudo systemctl restart gunicorn`
+(как в шаге 1 выше). Миграции не нужны — модели не менялись.
+
+---
+
 ## 20. Краткое резюме
 
 `ready` — это Django-админка для книжного магазина с упором на импорт каталога Эксмо, ручное управление товарами, загрузку фотографий и экспорт данных для Ozon. Основное рабочее место администратора — Django Admin. Основной источник товаров — модель `Book` с разделением по `source=manual` и `source=eksmo`. Для Ozon реализован безопасный офлайн-экспорт в Excel-шаблон, а прямой API пока отключён.
