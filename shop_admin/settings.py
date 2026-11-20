@@ -113,6 +113,30 @@ MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_BASE_URL = config('MEDIA_BASE_URL', default=MEDIA_URL)
 
 # ──────────────────────────────────────────────
+# Yandex Object Storage (S3-совместимый) — фото книг
+# ──────────────────────────────────────────────
+# Бакет в Яндекс Облаке: анонимное чтение объектов разрешено (требование Ozon),
+# запись — только по статическим ключам сервисного аккаунта.
+# Пока PHOTO_S3_ENABLED=False, фото сохраняются локально, как раньше.
+# Ключи читаются только из .env: в репозитории их быть не должно.
+PHOTO_S3_ENABLED = config('PHOTO_S3_ENABLED', default=False, cast=bool)
+YC_S3_BUCKET = config('YC_S3_BUCKET', default='')
+YC_S3_ACCESS_KEY = config('YC_S3_ACCESS_KEY', default='')
+YC_S3_SECRET_KEY = config('YC_S3_SECRET_KEY', default='')
+# Эндпоинт S3 API Яндекс Облака (не путать с публичным URL бакета).
+YC_S3_ENDPOINT = config('YC_S3_ENDPOINT', default='https://storage.yandexcloud.net')
+YC_S3_REGION = config('YC_S3_REGION', default='ru-central1')
+# База для публичных ссылок вида https://<bucket>.storage.yandexcloud.net/<key>.
+# Вынесена в настройку, чтобы при смене бакета/эндпоинта править только .env.
+YC_S3_PUBLIC_BASE_URL = config(
+    'YC_S3_PUBLIC_BASE_URL',
+    default=f'{YC_S3_ENDPOINT}/{YC_S3_BUCKET}' if YC_S3_BUCKET else '',
+)
+# Таймаут одного запроса и число повторов — сеть до облака не должна вешать админку.
+YC_S3_TIMEOUT = config('YC_S3_TIMEOUT', default=15, cast=int)
+YC_S3_MAX_ATTEMPTS = config('YC_S3_MAX_ATTEMPTS', default=3, cast=int)
+
+# ──────────────────────────────────────────────
 # Ozon (закомментировано — интеграция с Ozon Seller API отключена)
 # ──────────────────────────────────────────────
 # OZON_SHOP_ID = config('OZON_SHOP_ID', default='')

@@ -10,6 +10,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 
 from .models import Book, OzonTemplate
+from .storage_s3 import resolve_photo_url
 
 logger = logging.getLogger(__name__)
 
@@ -142,10 +143,10 @@ def _ozon_headers_and_mapping(ws, media_base_url):
         'высота упаковки мм': lambda book: int(float(book.height)) if book.height else '',
         'длина упаковки мм': lambda book: int(float(book.length)) if book.length else '',
         'ссылка на главное фото': lambda book: (
-            f'{media_base_url}{book.photos[0]}' if book.photos else ''
+            resolve_photo_url(book.photos[0], media_base_url) if book.photos else ''
         ),
         'ссылки на дополнительные фото': lambda book: (
-            ', '.join(f'{media_base_url}{photo}' for photo in book.photos[1:])
+            ', '.join(resolve_photo_url(photo, media_base_url) for photo in book.photos[1:])
             if len(book.photos) > 1 else ''
         ),
         'артикул фото': lambda book: book.sku or '',

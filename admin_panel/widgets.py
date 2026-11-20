@@ -1,8 +1,9 @@
 import json
 from django import forms
-from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.safestring import mark_safe
+
+from .storage_s3 import resolve_photo_url
 
 
 class TagInputWidget(forms.TextInput):
@@ -60,9 +61,13 @@ class MultipleImageWidget(forms.Widget):
 
         context = {
             'name': name,
+            # photo_items — пары «сырой путь + полный URL»: путь хранится в JSONField,
+            # а URL может быть и ссылкой на облако, и локальным /media/...
+            'photo_items': [
+                {'path': photo, 'url': resolve_photo_url(photo)} for photo in value
+            ],
             'photos': value,
             'photos_json': json.dumps(value),
-            'MEDIA_URL': settings.MEDIA_URL,
             'widget': self,
         }
         return mark_safe(render_to_string(self.template_name, context))

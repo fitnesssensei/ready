@@ -3,7 +3,7 @@ import re
 import uuid
 
 from django.conf import settings
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.core.cache import cache
 from django.core.files.storage import default_storage
 from django.db.models import Count, Q
@@ -12,6 +12,7 @@ from django.shortcuts import redirect
 from django.urls import path, reverse
 
 from .models import Book, Category, EksmoBook, ManualBook, OzonTemplate
+from . import storage_s3  # загрузка фото в Яндекс Облако (S3)
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin  # ← для кастомной админки пользователей
 from django.contrib.auth.models import User  # ← стандартная модель пользователя
 from .widgets import MultipleImageWidget, TagInputWidget
@@ -501,18 +502,10 @@ class BaseBookAdmin(admin.ModelAdmin):
         if not isinstance(existing_photos, list):
             existing_photos = []
 
-        new_photo_paths = []
-        if 'photos' in request.FILES:
-            for uploaded_file in request.FILES.getlist('photos'):
-                if not uploaded_file:
-                    continue
-                ext = uploaded_file.name.rsplit('.', 1)[-1].lower()
-                unique_name = f'{uuid.uuid4()}.{ext}'
-                saved_path = default_storage.save(f'book_photos/{unique_name}', uploaded_file)
-                new_photo_paths.append(saved_path)
-                logger.debug("Saved book photo: %s", saved_path)
-
-        obj.photos = (existing_photos + new_photo_paths)[:10]
+        # Новые файлы сохраняем ПОСЛЕ super().save_model(): папка в облаке
+        # строится по pk/sku, а у новой книги pk появляется только после записи.
+        # Здесь фиксируем только уже существующие пути, чтобы не потерять их.
+        obj.photos = existing_photos
 
         # Автоопределение категории по году издания
         if obj.publication_year:
@@ -530,6 +523,51 @@ class BaseBookAdmin(admin.ModelAdmin):
 
         self._set_source(obj)
         super().save_model(request, obj, form, change)
+
+        files = request.FILES.getlist('photos') if 'photos' in request.FILES else []
+        # Лимит 10 фото проверяем ДО загрузки: иначе «лишние» файлы улетят
+        # в облако и останутся там мусором, так и не попав в карточку.
+        free_slots = max(0, 10 - len(existing_photos))
+        new_photo_paths = self._save_uploaded_photos(request, obj, files[:free_slots])
+        if new_photo_paths:
+            # Второй write только когда фото реально добавлены.
+            obj.photos = (existing_photos + new_photo_paths)[:10]
+            obj.save(update_fields=['photos'])
+
+    def _save_uploaded_photos(self, request, obj, files):
+        """Сохраняет загруженные фото: сначала в Object Storage, при ошибке — локально.
+
+        Книга к этому моменту уже сохранена (есть pk), поэтому недоступность
+        облака не ломает сохранение: файл пишется в media/, а администратор
+        получает предупреждение.
+        """
+        saved_paths = []
+        for uploaded_file in files:
+            if not uploaded_file:
+                continue
+
+            # Основной путь: облако. Ссылка https откроется без авторизации,
+            # именно её ждёт Ozon.
+            if storage_s3.is_enabled():
+                try:
+                    saved_paths.append(storage_s3.upload_book_photo(uploaded_file, obj))
+                    continue
+                except storage_s3.PhotoStorageError:
+                    # Подробности уже в логе storage_s3, здесь — только для пользователя.
+                    messages.warning(
+                        request,
+                        f'Фото «{uploaded_file.name}» сохранено локально: '
+                        'Яндекс Облако недоступно.',
+                    )
+
+            # Запасной путь (и режим PHOTO_S3_ENABLED=False): локальное media/.
+            ext = uploaded_file.name.rsplit('.', 1)[-1].lower()
+            unique_name = f'{uuid.uuid4()}.{ext}'
+            saved_path = default_storage.save(f'book_photos/{unique_name}', uploaded_file)
+            saved_paths.append(saved_path)
+            logger.debug('Saved book photo locally: %s', saved_path)
+
+        return saved_paths
 
     def _set_source(self, obj):
         raise NotImplementedError

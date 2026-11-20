@@ -3,9 +3,9 @@
     <div class="existing-photos">
         <h4>Загруженные фотографии:</h4>
         <div class="photos-container">
-            {% for photo in photos %}
-            <div class="photo-item" data-path="{{ photo }}">
-                <img src="{{ MEDIA_URL }}{{ photo }}" alt="Фото книги">
+            {% for item in photo_items %}
+            <div class="photo-item" data-path="{{ item.path }}">
+                <img src="{{ item.url }}" alt="Фото книги">
                 <button type="button" class="remove-photo" title="Удалить фото">×</button>
             </div>
             {% empty %}

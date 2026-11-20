@@ -365,7 +365,9 @@
             var wrap = document.createElement('div');
             wrap.className = 'photo-item';
             wrap.dataset.path = path;
-            wrap.innerHTML = '<img src="' + mediaUrl + path + '" alt="Фото">' +
+            // Фото может быть уже загружено в облако — такую ссылку не префиксуем.
+            var src = /^https?:\/\//i.test(path) ? path : mediaUrl + path;
+            wrap.innerHTML = '<img src="' + src + '" alt="Фото">' +
                 '<button type="button" class="remove-photo" title="Удалить фото">×</button>';
             container.appendChild(wrap);
         });
