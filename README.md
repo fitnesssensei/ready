@@ -53,6 +53,7 @@ ready/
 │   ├── urls.py                       # маршруты /shop/
 │   ├── widgets.py                    # виджет загрузки нескольких фото
 │   ├── ozon_api.py                   # закомментированный Ozon API-клиент
+│   ├── storage_s3.py                 # загрузка фото книг в Яндекс Object Storage (S3)
 │   ├── management/commands/          # Django-команды импорта/обработки
 │   └── templates/admin_panel/        # шаблоны админки и демо-страниц
 ├── import_books.py                   # legacy-скрипт импорта книг (source='eksmo')
@@ -87,6 +88,13 @@ DB_HOST=localhost
 DB_PORT=5432
 # Ozon API сейчас отключён
 # OZON_SHOP_ID=your_ozon_shop_id_here
+# Yandex Object Storage (фото книг); False — фото лежат локально в media/
+PHOTO_S3_ENABLED=False
+YC_S3_BUCKET=gory-knig
+YC_S3_ACCESS_KEY=your_access_key_here
+YC_S3_SECRET_KEY=your_secret_key_here
+YC_S3_ENDPOINT=https://storage.yandexcloud.net
+YC_S3_REGION=ru-central1
 ```
 
 ## Важные настройки из `shop_admin/settings.py`
@@ -95,6 +103,11 @@ DB_PORT=5432
 - `LANGUAGE_CODE = 'ru-ru'`
 - `TIME_ZONE = 'Europe/Moscow'`
 - `MEDIA_ROOT = BASE_DIR / 'media'`
+- `MEDIA_BASE_URL` — база для локальных фото (по умолчанию `MEDIA_URL`).
+- `PHOTO_S3_ENABLED` — включить загрузку фото книг в Яндекс Object Storage (по умолчанию `False`).
+- `YC_S3_BUCKET`, `YC_S3_ACCESS_KEY`, `YC_S3_SECRET_KEY`, `YC_S3_ENDPOINT`, `YC_S3_REGION` — доступ к бакету.
+- `YC_S3_PUBLIC_BASE_URL` — база публичных ссылок (`https://storage.yandexcloud.net/<bucket>`).
+- `YC_S3_TIMEOUT`, `YC_S3_MAX_ATTEMPTS` — таймаут и число повторов запросов к облаку.
 - `STATIC_ROOT = BASE_DIR / 'staticfiles'`
 - `ALLOWED_HOSTS` по умолчанию разрешает `*`
 - Ozon Seller API отключён: `admin_panel/ozon_api.py` и часть management-команд закомментированы.
@@ -236,7 +249,7 @@ python manage.py runserver
 - просмотр, поиск, фильтрация книг
 - экспорт выбранных книг в Excel
 - экспорт выбранных книг в шаблон Ozon
-- загрузка до 10 фото к книге
+- загрузка до 10 фото к книге (в облако или локально — см. ниже)
 - ручное создание книги из каталога Эксмо
 - поиск книг по артикулу, названию или ISBN (по всем каталогам)
 - автоматическая подстановка данных книги Эксмо в форму ручной книги
@@ -292,6 +305,71 @@ var searchableFields = [
 
 Категории создаются автоматически через `get_or_create` при первом сохранении.
 Работает для обоих разделов: «Каталог — админка» и «База книг».
+
+### Фотографии книг и Яндекс Object Storage (S3)
+
+Фото книги хранятся в `Book.photos` (JSONField, до 10 значений). В списке могут
+лежать **оба** вида значений, код и шаблоны поддерживают их одновременно:
+
+- публичная ссылка `https://storage.yandexcloud.net/<bucket>/book_photos/<папка>/<файл>.jpg` — фото в облаке;
+- относительный путь `book_photos/<uuid>.jpg` — локальный файл в `media/` (старые книги и режим без облака).
+
+**Как работает загрузка.** `BaseBookAdmin.save_model`:
+
+1. сохраняет книгу (`super().save_model`) — нужен `pk` для имени папки;
+2. если `PHOTO_S3_ENABLED=True` и ключи заданы (`admin_panel/storage_s3.py: is_enabled()`),
+   каждый файл уходит в бакет через `put_object` (S3 API, `s3v4`, path-style);
+3. ключ объекта: `book_photos/<sku|id-<pk>>/<uuid>.<ext>`; артикул чистится
+   (слэши/пробелы/кириллица), при пустом/нечитаемом артикуле — `id-<pk>`;
+4. в `Book.photos` попадает публичная ссылка, а не путь;
+5. при ошибке облака (`PhotoStorageError`: сеть, 403, квота) файл сохраняется
+   локально в `media/book_photos/`, книга сохраняется, администратор видит
+   предупреждение. Сохранение книги никогда не падает из-за облака;
+6. лимит 10 фото проверяется **до** загрузки — «лишние» файлы не попадают в бакет.
+
+Таймауты и повторы берутся из `YC_S3_TIMEOUT` / `YC_S3_MAX_ATTEMPTS`
+(повторы на 429/5xx делает botocore). Объекты пишутся с
+`Cache-Control: public, max-age=31536000, immutable` — имена уникальны.
+
+**Публичные ссылки.** В бакете должно быть открыто только чтение объектов;
+листинг и запись закрыты. Проверка:
+
+```bash
+# файл открывается без авторизации
+curl -s -o /dev/null -w '%{http_code} %{content_type}\n' \
+  'https://storage.yandexcloud.net/gory-knig/book_photos/AB-1/01.jpg'   # 200 image/jpeg
+# листинг закрыт
+curl -s -o /dev/null -w '%{http_code}\n' 'https://storage.yandexcloud.net/gory-knig/'  # 403
+```
+
+**Отображение и экспорт.** И виджет `MultipleImageWidget`, и экспорт в шаблон Ozon
+(`admin_panel/views.py`) используют `storage_s3.resolve_photo_url()`:
+абсолютные ссылки отдаются как есть, относительные дополняются `MEDIA_BASE_URL`.
+
+**Перенос уже существующих фото.** Management-команда `upload_book_photos`
+(файл `admin_panel/management/commands/upload_book_photos.py`):
+
+```bash
+# посчитать, ничего не меняя
+python manage.py upload_book_photos --dry-run
+# пробная партия из 10 книг
+python manage.py upload_book_photos --limit 10
+# только конкретные артикулы
+python manage.py upload_book_photos --sku 978-5-04-123456-7
+# полный перенос
+python manage.py upload_book_photos
+```
+
+Ключ при переносе детерминированный (`book_photos/<папка>/<имя файла>`), поэтому
+повторный запуск перезаписывает те же объекты и не создаёт копий. Уже облачные
+ссылки пропускаются, отсутствующие локально файлы считаются в отчёте и остаются
+как есть, ошибка по одной книге не останавливает прогон. Требуется
+`PHOTO_S3_ENABLED=True` и права на `SELECT`/`UPDATE` таблицы `admin_panel_book`.
+
+**Тесты:** `admin_panel/tests_storage_s3.py` (модуль, ключи, URL, виджет),
+`admin_panel/tests_photo_upload.py` (сохранение из админки, fallback, лимит),
+`admin_panel/tests_upload_book_photos.py` (команда переноса).
+Сеть в тестах не используется — клиент boto3 подменяется моком.
 
 ---
 
@@ -752,8 +830,11 @@ sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book
 
 6. **Размеры хранятся в мм.**  
    Для старых данных есть команда `convert_dims_to_mm`.
-7. **Фото книг хранятся как JSONField со списком относительных путей.**  
-   Загрузка файлов выполняется в `BaseBookAdmin.save_model()`.
+7. **Фото книг хранятся как JSONField (`Book.photos`) со списком из ≤10 значений.**  
+   Значения могут быть двух видов: абсолютная ссылка на Яндекс Object Storage или
+   относительный путь в `media/` (старые книги, режим `PHOTO_S3_ENABLED=False`).
+   Загрузка выполняется в `BaseBookAdmin.save_model()`, отображение и экспорт —
+   через `storage_s3.resolve_photo_url()`. Подробности — в разделе 6.
 8. **Некоторые большие данные игнорируются Git.**  
    Для восстановления полного каталога нужны внешние JSON/Excel-файлы или серверная БД.
 9. **В рабочей области уже есть изменения в старых `.md`-файлах.**  
@@ -771,6 +852,12 @@ sudo -u postgres psql -d shop_admin_db -c "SELECT COUNT(*) FROM admin_panel_book
     - Для удаления — нажмите × на теге или Backspace в пустом поле
     - Для автодополнения — начните печатать (подсказки из существующих значений)
     - Хранение в БД — через разделитель `"; "`, миграции не потребовались
+13. **Яндекс Диск не подходит как источник фото для Ozon.**  
+    Публичные ссылки `https://yadi.sk/i/...` отдают роботам страницу с капчей
+    (`X-Yandex-Captcha: captcha`, финальный `content-type: text/html`), а прямая
+    ссылка `downloader.disk.yandex.ru` временная. Поэтому используется
+    Яндекс Object Storage (S3): `https://storage.yandexcloud.net/<bucket>/<key>`
+    отдаёт сам файл (`image/jpeg`) без авторизации.
 
 ---
 
@@ -799,6 +886,10 @@ python manage.py fill_dims_from_annotation --source eksmo --dry-run
 python manage.py convert_dims_to_mm --dry-run
 # Заполнить isbn_digits для книг с ISBN (если поле пустое)
 python manage.py fill_isbn_digits
+# Перенести локальные фото книг в Яндекс Object Storage (сначала dry-run)
+python manage.py upload_book_photos --dry-run
+python manage.py upload_book_photos --limit 10
+python manage.py upload_book_photos
 # Собрать статику
 python manage.py collectstatic --noinput
 # Замеры страниц админки «до/после» (запускать на сервере из корня проекта)
@@ -1293,4 +1384,4 @@ python manage.py test admin_panel -v2 # Ran 25 tests ... OK (БД не подн�
 
 ## 20. Краткое резюме
 
-`ready` — это Django-админка для книжного магазина с упором на импорт каталога Эксмо, ручное управление товарами, загрузку фотографий и экспорт данных для Ozon. Основное рабочее место администратора — Django Admin. Основной источник товаров — модель `Book` с разделением по `source=manual` и `source=eksmo`. Для Ozon реализован безопасный офлайн-экспорт в Excel-шаблон, а прямой API пока отключён.
+`ready` — это Django-админка для книжного магазина с упором на импорт каталога Эксмо, ручное управление товарами, загрузку фотографий и экспорт данных для Ozon. Основное рабочее место администратора — Django Admin. Основной источник товаров — модель `Book` с разделением по `source=manual` и `source=eksmo`. Фотографии книг загружаются в Яндекс Object Storage (S3) с публичными ссылками, пригодными для Ozon, и локальным fallback при недоступности облака; для уже существующих фото есть команда `upload_book_photos`. Для Ozon реализован безопасный офлайн-экспорт в Excel-шаблон, а прямой API пока отключён.
